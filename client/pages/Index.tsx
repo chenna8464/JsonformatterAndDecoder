@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
   Check,
@@ -102,6 +102,7 @@ export default function Index() {
   const [copied, setCopied] = useState(false);
   const [formatMessage, setFormatMessage] = useState("");
   const [commentLine, setCommentLine] = useState(1);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: number } | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const lineCount = useMemo(() => json.split("\n").length, [json]);
@@ -172,13 +173,20 @@ export default function Index() {
     editor.scrollTop = Math.max(0, targetLineIndex * lineHeight - editor.clientHeight / 3);
   };
 
-  const openCommentComposer = () => {
+  const openCommentComposer = (lineOverride?: number) => {
     const editor = editorRef.current;
     const cursor = editor?.selectionStart ?? 0;
-    const line = json.slice(0, cursor).split("\n").length;
+    const line = lineOverride ?? json.slice(0, cursor).split("\n").length;
     setCommentLine(line);
+    setContextMenu(null);
     setShowComposer(true);
   };
+
+  useEffect(() => {
+    const closeContextMenu = () => setContextMenu(null);
+    document.addEventListener("click", closeContextMenu);
+    return () => document.removeEventListener("click", closeContextMenu);
+  }, []);
 
   const addNote = () => {
     if (!noteText.trim()) return;
@@ -255,7 +263,7 @@ export default function Index() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
-              <button onClick={openCommentComposer} className="tool-button"><MessageSquarePlus size={16} /> Add comment</button>
+              <button onClick={() => openCommentComposer()} className="tool-button"><MessageSquarePlus size={16} /> Add comment</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
               <button onClick={copyJson} className="tool-button">{copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}{copied ? "Copied" : "Copy"}</button>
               <button onClick={downloadJson} className="grid h-9 w-9 place-items-center rounded-lg bg-[#172033] text-white transition hover:bg-slate-700" aria-label="Download JSON"><Download size={16} /></button>
@@ -270,8 +278,9 @@ export default function Index() {
               </div>
               <div className="relative flex flex-1 bg-[#fcfcfe]">
                 <div className="select-none border-r border-[#eff1f6] bg-[#f7f8fb] px-2 pt-5 font-mono text-[13px] leading-[25px] text-slate-300">{Array.from({ length: lineCount }, (_, index) => { const line = index + 1; const lineNotes = notes.filter((note) => note.line === line); return <div key={line} className="flex h-[25px] items-center justify-end gap-2"><span>{line}</span>{lineNotes.length > 0 && <button onClick={() => jumpToNote(lineNotes[0])} className="text-[#0f766e] transition hover:scale-125" aria-label={`Comment on line ${line}`}><MessageSquare size={13} fill="currentColor" /></button>}</div>; })}</div>
-                <textarea ref={editorRef} aria-label="JSON editor" value={json} onChange={(event) => { updateJson(event.target.value); setFormatMessage(""); }} spellCheck={false} className="min-h-[520px] flex-1 resize-none bg-transparent px-5 py-5 font-mono text-[13px] leading-[25px] text-[#33415c] outline-none" />
+                <textarea ref={editorRef} aria-label="JSON editor" value={json} onChange={(event) => { updateJson(event.target.value); setFormatMessage(""); }} onContextMenu={(event) => { event.preventDefault(); const editor = event.currentTarget; const rect = editor.getBoundingClientRect(); const line = Math.max(1, Math.min(lineCount, Math.floor((event.clientY - rect.top + editor.scrollTop - 20) / 25) + 1)); setContextMenu({ x: Math.min(event.clientX, window.innerWidth - 220), y: Math.min(event.clientY, window.innerHeight - 80), line }); }} spellCheck={false} className="min-h-[520px] flex-1 resize-none bg-transparent px-5 py-5 font-mono text-[13px] leading-[25px] text-[#33415c] outline-none" />
                 <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[#e6e7ef] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>
+                {contextMenu && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[#e6f7f4] hover:text-[#0f766e]"><MessageSquarePlus size={15} className="text-[#0f766e]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
             </section>
 
@@ -283,7 +292,7 @@ export default function Index() {
               <div className="space-y-3 p-4">
                 {visibleNotes.map((note) => <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[#ebeaf2] p-4 transition hover:border-[#cfcced] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="absolute right-2 top-2 hidden rounded p-1 text-slate-400 hover:bg-slate-100 group-hover:block" aria-label="Remove note"><X size={14} /></button><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p><div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[#0f766e]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
                 {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
-                {showComposer ? <div className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => setShowComposer(false)} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">Save note</button></div></div> : <button onClick={openCommentComposer} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9ed3c8] py-3 text-sm font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]"><MessageSquarePlus size={16} /> Add reference note</button>}
+                {showComposer ? <div className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => setShowComposer(false)} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">Save note</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9ed3c8] py-3 text-sm font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]"><MessageSquarePlus size={16} /> Add reference note</button>}
               </div>
             </aside>
           </div>
