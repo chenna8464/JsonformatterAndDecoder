@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CircleHelp,
   Code2,
+  GitCompare,
   Copy,
   Download,
   FileJson2,
@@ -72,6 +73,24 @@ const repairJson = (source: string): FormatResult => {
   }
 };
 
+type JsonTreeProps = { label: string; value: unknown; depth?: number };
+
+function JsonTree({ label, value, depth = 0 }: JsonTreeProps) {
+  const [open, setOpen] = useState(depth < 2);
+  const isBranch = value !== null && typeof value === "object";
+  const entries = isBranch ? Object.entries(value as Record<string, unknown>) : [];
+  const preview = Array.isArray(value) ? `[${value.length}]` : `{${entries.length}}`;
+
+  if (!isBranch) return <div className="flex items-center gap-2 py-1.5 font-mono text-xs" style={{ paddingLeft: depth * 20 }}><span className="font-semibold text-slate-600">{label}</span><span className="text-slate-300">:</span><span className={typeof value === "string" ? "text-amber-600" : typeof value === "boolean" ? "text-violet-600" : "text-sky-600"}>{JSON.stringify(value)}</span></div>;
+
+  return <div><button onClick={() => setOpen((current) => !current)} className="flex items-center gap-1.5 py-1.5 text-left font-mono text-xs font-semibold text-slate-700 hover:text-[#0f766e]" style={{ paddingLeft: depth * 20 }}><ChevronDown size={13} className={`transition-transform ${open ? "" : "-rotate-90"}`} /><span>{label}</span><span className="font-normal text-slate-400">{preview}</span></button>{open && <div>{entries.map(([key, child]) => <JsonTree key={`${label}-${key}`} label={Array.isArray(value) ? `[${key}]` : key} value={child} depth={depth + 1} />)}</div>}</div>;
+}
+
+const flattenJson = (value: unknown, path = ""): Record<string, string> => {
+  if (value !== null && typeof value === "object") return Object.entries(value as Record<string, unknown>).reduce((result, [key, child]) => Object.assign(result, flattenJson(child, path ? `${path}.${key}` : key)), {});
+  return { [path || "value"]: JSON.stringify(value) };
+};
+
 const starterNotes: Note[] = [
   {
     id: 1,
@@ -103,9 +122,21 @@ export default function Index() {
   const [formatMessage, setFormatMessage] = useState("");
   const [commentLine, setCommentLine] = useState(1);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: number } | null>(null);
+  const [view, setView] = useState<"editor" | "tree">("editor");
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const lineCount = useMemo(() => json.split("\n").length, [json]);
+  const differences = useMemo(() => {
+    try {
+      const left = flattenJson(JSON.parse(json));
+      const right = flattenJson(JSON.parse(compareJson));
+      return Array.from(new Set([...Object.keys(left), ...Object.keys(right)])).filter((path) => left[path] !== right[path]).map((path) => ({ path, before: left[path] ?? "missing", after: right[path] ?? "missing" }));
+    } catch {
+      return [];
+    }
+  }, [compareJson, json]);
 
   const updateJson = (value: string) => {
     setJson(value);
@@ -263,7 +294,7 @@ export default function Index() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
-              <button onClick={() => openCommentComposer()} className="tool-button"><MessageSquarePlus size={16} /> Add comment</button>
+              <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]" : ""}`}><GitCompare size={16} /> Compare</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
               <button onClick={copyJson} className="tool-button">{copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}{copied ? "Copied" : "Copy"}</button>
               <button onClick={downloadJson} className="grid h-9 w-9 place-items-center rounded-lg bg-[#172033] text-white transition hover:bg-slate-700" aria-label="Download JSON"><Download size={16} /></button>
@@ -271,16 +302,16 @@ export default function Index() {
           </div>
 
           <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
-            <section className="flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+            <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+              {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><pre className="flex-1 overflow-auto bg-[#fafbfc] p-4 font-mono text-xs leading-6 text-slate-600">{json}</pre></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences</p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
-                <div className="flex items-center gap-4"><span className="tab-active">Editor</span><span className="text-sm font-semibold text-slate-400">Tree view</span></div>
+                <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button></div>
                 <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button className="text-slate-500 hover:text-slate-900"><Maximize2 size={16} /></button></div>
               </div>
               <div className="relative flex flex-1 bg-[#fcfcfe]">
-                <div className="select-none border-r border-[#eff1f6] bg-[#f7f8fb] px-2 pt-5 font-mono text-[13px] leading-[25px] text-slate-300">{Array.from({ length: lineCount }, (_, index) => { const line = index + 1; const lineNotes = notes.filter((note) => note.line === line); return <div key={line} className="flex h-[25px] items-center justify-end gap-2"><span>{line}</span>{lineNotes.length > 0 && <button onClick={() => jumpToNote(lineNotes[0])} className="text-[#0f766e] transition hover:scale-125" aria-label={`Comment on line ${line}`}><MessageSquare size={13} fill="currentColor" /></button>}</div>; })}</div>
-                <textarea ref={editorRef} aria-label="JSON editor" value={json} onChange={(event) => { updateJson(event.target.value); setFormatMessage(""); }} onContextMenu={(event) => { event.preventDefault(); const editor = event.currentTarget; const rect = editor.getBoundingClientRect(); const line = Math.max(1, Math.min(lineCount, Math.floor((event.clientY - rect.top + editor.scrollTop - 20) / 25) + 1)); setContextMenu({ x: Math.min(event.clientX, window.innerWidth - 220), y: Math.min(event.clientY, window.innerHeight - 80), line }); }} spellCheck={false} className="min-h-[520px] flex-1 resize-none bg-transparent px-5 py-5 font-mono text-[13px] leading-[25px] text-[#33415c] outline-none" />
-                <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[#e6e7ef] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>
-                {contextMenu && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[#e6f7f4] hover:text-[#0f766e]"><MessageSquarePlus size={15} className="text-[#0f766e]" /> Add comment on line {contextMenu.line}</button></div>}
+                {view === "tree" ? <div className="min-h-[520px] flex-1 overflow-auto p-6"><div className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[#0f766e]" /> Interactive structure <span>•</span> Click arrows to expand or collapse</div>{status === "valid" ? <JsonTree label="root" value={JSON.parse(json)} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div> : <><div className="select-none border-r border-[#eff1f6] bg-[#f7f8fb] px-2 pt-5 font-mono text-[13px] leading-[25px] text-slate-300">{Array.from({ length: lineCount }, (_, index) => { const line = index + 1; const lineNotes = notes.filter((note) => note.line === line); return <div key={line} className="flex h-[25px] items-center justify-end gap-2"><span>{line}</span>{lineNotes.length > 0 && <button onClick={() => jumpToNote(lineNotes[0])} className="text-[#0f766e] transition hover:scale-125" aria-label={`Comment on line ${line}`}><MessageSquare size={13} fill="currentColor" /></button>}</div>; })}</div><textarea ref={editorRef} aria-label="JSON editor" value={json} onChange={(event) => { updateJson(event.target.value); setFormatMessage(""); }} onContextMenu={(event) => { event.preventDefault(); const editor = event.currentTarget; const rect = editor.getBoundingClientRect(); const line = Math.max(1, Math.min(lineCount, Math.floor((event.clientY - rect.top + editor.scrollTop - 20) / 25) + 1)); setContextMenu({ x: Math.min(event.clientX, window.innerWidth - 220), y: Math.min(event.clientY, window.innerHeight - 80), line }); }} spellCheck={false} className="min-h-[520px] flex-1 resize-none bg-transparent px-5 py-5 font-mono text-[13px] leading-[25px] text-[#33415c] outline-none" /></>}
+                {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[#e6e7ef] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
+                {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[#e6f7f4] hover:text-[#0f766e]"><MessageSquarePlus size={15} className="text-[#0f766e]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
             </section>
 
