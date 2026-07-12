@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
+  Building2,
   Check,
   ChevronDown,
   CircleHelp,
@@ -15,6 +16,7 @@ import {
   MessageSquare,
   MessageSquarePlus,
   MoreHorizontal,
+  Plus,
   Search,
   Sparkles,
   WandSparkles,
@@ -60,6 +62,7 @@ const webhookJson = `{
 
 type Note = { id: number; title: string; text: string; path: string; line: number; color: string };
 type DocumentRecord = { name: string; content: string; updated: string };
+type Workspace = { id: number; name: string; type: "Personal" | "Team"; color: string };
 
 type FormatResult = { value: string; repaired: boolean };
 
@@ -102,6 +105,11 @@ const flattenJson = (value: unknown, path = ""): Record<string, string> => {
   return { [path || "value"]: JSON.stringify(value) };
 };
 
+const starterWorkspaces: Workspace[] = [
+  { id: 1, name: "Personal Office", type: "Personal", color: "bg-[#0f766e]" },
+  { id: 2, name: "API Guild", type: "Team", color: "bg-[#7c5ce3]" },
+];
+
 const starterDocuments: DocumentRecord[] = [
   { name: "northstar-api.json", content: initialJson, updated: "Just now" },
   { name: "webhook-payload.json", content: webhookJson, updated: "Yesterday" },
@@ -143,10 +151,15 @@ export default function Index() {
   const [activeDocumentKey, setActiveDocumentKey] = useState<string | null>("northstar-api.json");
   const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
   const [documents, setDocuments] = useState<DocumentRecord[]>(starterDocuments);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(starterWorkspaces);
+  const [workspaceId, setWorkspaceId] = useState(1);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [workspaceDraft, setWorkspaceDraft] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
+  const workspace = workspaces.find((item) => item.id === workspaceId) || workspaces[0];
   const lineCount = useMemo(() => json.split("\n").length, [json]);
   const differences = useMemo(() => {
     try {
@@ -162,6 +175,17 @@ export default function Index() {
     const compareLines = compareJson.split("\n");
     return Array.from({ length: Math.max(currentLines.length, compareLines.length) }, (_, index) => ({ line: index + 1, current: currentLines[index] ?? "", compare: compareLines[index] ?? "", changed: (currentLines[index] ?? "").trim() !== (compareLines[index] ?? "").trim() }));
   }, [compareJson, json]);
+
+  const createWorkspace = () => {
+    const name = workspaceDraft.trim();
+    if (!name) return;
+    const next = { id: Date.now(), name, type: "Personal" as const, color: "bg-[#e07a5f]" };
+    setWorkspaces((current) => [...current, next]);
+    setWorkspaceId(next.id);
+    setWorkspaceDraft("");
+    setWorkspaceMenuOpen(false);
+    setFormatMessage(`Switched to ${name}`);
+  };
 
   const saveDocument = () => {
     const name = documentName.trim() || "untitled.json";
@@ -328,6 +352,7 @@ export default function Index() {
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <aside className="hidden w-[232px] shrink-0 border-r border-[#e9eaf2] bg-white px-4 py-6 lg:block">
+          <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-3 text-left transition hover:border-[#9ed3c8]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[#e3e6ef] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => { setWorkspaceId(item.id); setWorkspaceMenuOpen(false); setFormatMessage(`Switched to ${item.name}`); }} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[#e6f7f4] text-[#0f766e]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[#eef0f5]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[#e3e6ef] px-2.5 py-2 text-xs outline-none focus:border-[#9ed3c8]" /><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[#172033] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
           <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
             <FilePlus2 size={17} /> New document
           </button>
@@ -349,7 +374,7 @@ export default function Index() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-col gap-4 border-b border-[#e6e8f0] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[#0f766e]" /></div>
+              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {workspace.name} <span>/</span> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[#0f766e]" /></div>
               <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[#0f766e]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -364,7 +389,7 @@ export default function Index() {
 
           <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
             <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files you can return to anytime in this workspace.</p></div><button onClick={() => createDocument()} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
+              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
               {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><div className="flex-1 overflow-auto bg-[#fafbfc] py-3 font-mono text-xs leading-6">{lineDiffs.map((item) => <div key={item.line} className={`flex min-w-max gap-3 px-4 ${item.changed ? "bg-rose-50 text-rose-700" : "text-slate-600"}`}><span className="w-7 select-none text-right text-slate-300">{item.line}</span><span>{item.current || " "}</span></div>)}</div></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /><div className="border-t border-[#d9eeea] bg-[#f4fbfa] px-4 py-2 text-[10px] font-semibold text-[#0f766e]">Changed lines are highlighted in the current document</div></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences <span className="ml-2 text-xs font-normal text-slate-400">{lineDiffs.filter((item) => item.changed).length ? `at lines ${lineDiffs.filter((item) => item.changed).map((item) => item.line).join(", ")}` : "No changed lines"}</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button></div>
