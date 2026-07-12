@@ -140,6 +140,7 @@ export default function Index() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: number } | null>(null);
   const [view, setView] = useState<"editor" | "tree">("editor");
   const [documentName, setDocumentName] = useState("northstar-api.json");
+  const [activeDocumentKey, setActiveDocumentKey] = useState<string | null>("northstar-api.json");
   const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
   const [documents, setDocuments] = useState<DocumentRecord[]>(starterDocuments);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -166,16 +167,29 @@ export default function Index() {
     const name = documentName.trim() || "untitled.json";
     const record = { name, content: json, updated: "Just now" };
     setDocuments((current) => {
-      const existing = current.findIndex((document) => document.name === name);
+      const existing = activeDocumentKey ? current.findIndex((document) => document.name === activeDocumentKey) : -1;
       if (existing < 0) return [record, ...current];
       return current.map((document, index) => index === existing ? record : document);
     });
+    setActiveDocumentKey(name);
     setDocumentName(name);
     setFormatMessage("Saved to My documents");
     setActiveSection("current");
   };
 
+  const createDocument = () => {
+    setActiveDocumentKey(null);
+    setDocumentName("untitled.json");
+    setJson("{\n  \n}");
+    setStatus("valid");
+    setFormatMessage("");
+    setActiveSection("current");
+    setView("editor");
+    setCompareOpen(false);
+  };
+
   const openDocument = (name: string, content: string) => {
+    setActiveDocumentKey(name);
     setDocumentName(name);
     setJson(content);
     setStatus("valid");
@@ -314,7 +328,7 @@ export default function Index() {
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <aside className="hidden w-[232px] shrink-0 border-r border-[#e9eaf2] bg-white px-4 py-6 lg:block">
-          <button onClick={() => openDocument("untitled.json", "{\n  \n}")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
+          <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
             <FilePlus2 size={17} /> New document
           </button>
           <nav className="mt-7 space-y-1">
@@ -350,7 +364,7 @@ export default function Index() {
 
           <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
             <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files you can return to anytime in this workspace.</p></div><button onClick={() => openDocument("untitled.json", "{\n  \n}")} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
+              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files you can return to anytime in this workspace.</p></div><button onClick={() => createDocument()} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
               {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><div className="flex-1 overflow-auto bg-[#fafbfc] py-3 font-mono text-xs leading-6">{lineDiffs.map((item) => <div key={item.line} className={`flex min-w-max gap-3 px-4 ${item.changed ? "bg-rose-50 text-rose-700" : "text-slate-600"}`}><span className="w-7 select-none text-right text-slate-300">{item.line}</span><span>{item.current || " "}</span></div>)}</div></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /><div className="border-t border-[#d9eeea] bg-[#f4fbfa] px-4 py-2 text-[10px] font-semibold text-[#0f766e]">Changed lines are highlighted in the current document</div></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences <span className="ml-2 text-xs font-normal text-slate-400">{lineDiffs.filter((item) => item.changed).length ? `at lines ${lineDiffs.filter((item) => item.changed).map((item) => item.line).join(", ")}` : "No changed lines"}</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button></div>
