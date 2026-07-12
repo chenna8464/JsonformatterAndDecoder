@@ -59,6 +59,7 @@ const webhookJson = `{
 }`;
 
 type Note = { id: number; title: string; text: string; path: string; line: number; color: string };
+type DocumentRecord = { name: string; content: string; updated: string };
 
 type FormatResult = { value: string; repaired: boolean };
 
@@ -101,6 +102,11 @@ const flattenJson = (value: unknown, path = ""): Record<string, string> => {
   return { [path || "value"]: JSON.stringify(value) };
 };
 
+const starterDocuments: DocumentRecord[] = [
+  { name: "northstar-api.json", content: initialJson, updated: "Just now" },
+  { name: "webhook-payload.json", content: webhookJson, updated: "Yesterday" },
+];
+
 const starterNotes: Note[] = [
   {
     id: 1,
@@ -135,6 +141,7 @@ export default function Index() {
   const [view, setView] = useState<"editor" | "tree">("editor");
   const [documentName, setDocumentName] = useState("northstar-api.json");
   const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
+  const [documents, setDocuments] = useState<DocumentRecord[]>(starterDocuments);
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -154,6 +161,19 @@ export default function Index() {
     const compareLines = compareJson.split("\n");
     return Array.from({ length: Math.max(currentLines.length, compareLines.length) }, (_, index) => ({ line: index + 1, current: currentLines[index] ?? "", compare: compareLines[index] ?? "", changed: (currentLines[index] ?? "").trim() !== (compareLines[index] ?? "").trim() }));
   }, [compareJson, json]);
+
+  const saveDocument = () => {
+    const name = documentName.trim() || "untitled.json";
+    const record = { name, content: json, updated: "Just now" };
+    setDocuments((current) => {
+      const existing = current.findIndex((document) => document.name === name);
+      if (existing < 0) return [record, ...current];
+      return current.map((document, index) => index === existing ? record : document);
+    });
+    setDocumentName(name);
+    setFormatMessage("Saved to My documents");
+    setActiveSection("current");
+  };
 
   const openDocument = (name: string, content: string) => {
     setDocumentName(name);
@@ -303,8 +323,7 @@ export default function Index() {
           </nav>
           <div className="mt-9 border-t border-[#eef0f5] pt-5">
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Recent</p>
-            <button onClick={() => openDocument("northstar-api.json", initialJson)} className={`recent-link ${documentName === "northstar-api.json" ? "bg-[#f4fbfa] text-[#0f766e]" : ""}`}><span className="h-2 w-2 rounded-full bg-[#0f766e]" /> northstar-api.json</button>
-            <button onClick={() => openDocument("webhook-payload.json", webhookJson)} className={`recent-link ${documentName === "webhook-payload.json" ? "bg-[#fff8eb] text-amber-700" : ""}`}><span className="h-2 w-2 rounded-full bg-[#ffb64d]" /> webhook-payload.json</button>
+            {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "bg-[#f4fbfa] text-[#0f766e]" : ""}`}><span className={`h-2 w-2 rounded-full ${document.name.includes("webhook") ? "bg-[#ffb64d]" : "bg-[#0f766e]"}`} /> {document.name}</button>)}
           </div>
           <div className="mt-auto rounded-xl bg-[#f3f2ff] px-4 py-4 text-sm text-[#4d46c9]">
             <Sparkles size={18} className="mb-2" />
@@ -316,10 +335,11 @@ export default function Index() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-col gap-4 border-b border-[#e6e8f0] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <span className="truncate font-semibold text-slate-700">{documentName}</span></div>
+              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[#0f766e]" /></div>
               <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[#0f766e]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button onClick={saveDocument} className="tool-button border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]"><Check size={16} /> Save</button>
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
               <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]" : ""}`}><GitCompare size={16} /> Compare</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
@@ -330,6 +350,7 @@ export default function Index() {
 
           <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
             <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files you can return to anytime in this workspace.</p></div><button onClick={() => openDocument("untitled.json", "{\n  \n}")} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
               {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><div className="flex-1 overflow-auto bg-[#fafbfc] py-3 font-mono text-xs leading-6">{lineDiffs.map((item) => <div key={item.line} className={`flex min-w-max gap-3 px-4 ${item.changed ? "bg-rose-50 text-rose-700" : "text-slate-600"}`}><span className="w-7 select-none text-right text-slate-300">{item.line}</span><span>{item.current || " "}</span></div>)}</div></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /><div className="border-t border-[#d9eeea] bg-[#f4fbfa] px-4 py-2 text-[10px] font-semibold text-[#0f766e]">Changed lines are highlighted in the current document</div></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences <span className="ml-2 text-xs font-normal text-slate-400">{lineDiffs.filter((item) => item.changed).length ? `at lines ${lineDiffs.filter((item) => item.changed).map((item) => item.line).join(", ")}` : "No changed lines"}</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button></div>
