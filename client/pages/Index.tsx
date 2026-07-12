@@ -48,12 +48,22 @@ const initialJson = `{
   }
 }`;
 
+const webhookJson = `{
+  "event": "user.updated",
+  "timestamp": "2024-05-18T10:30:00Z",
+  "data": {
+    "id": "usr_1024",
+    "email": "hello@example.com",
+    "active": true
+  }
+}`;
+
 type Note = { id: number; title: string; text: string; path: string; line: number; color: string };
 
 type FormatResult = { value: string; repaired: boolean };
 
 const repairJson = (source: string): FormatResult => {
-  let value = source.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/([{,]\s*)([A-Za-z0-9_$-]+)(\s*:)/g, '$1"$2"$3').replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1');
+  let value = source.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/([{,]\s*)([A-Za-z0-9_$-]+)(\s*:)/g, '$1"$2"$3').replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1').replace(/([\]}"0-9]|true|false|null)\s+(?="[A-Za-z0-9_$-]+"\s*:)/g, '$1,').replace(/([\]}"0-9]|true|false|null)\s+(?=[\[{])/g, '$1,');
   const stack: string[] = [];
   let inString = false;
   let escaped = false;
@@ -123,6 +133,8 @@ export default function Index() {
   const [commentLine, setCommentLine] = useState(1);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: number } | null>(null);
   const [view, setView] = useState<"editor" | "tree">("editor");
+  const [documentName, setDocumentName] = useState("northstar-api.json");
+  const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -142,6 +154,16 @@ export default function Index() {
     const compareLines = compareJson.split("\n");
     return Array.from({ length: Math.max(currentLines.length, compareLines.length) }, (_, index) => ({ line: index + 1, current: currentLines[index] ?? "", compare: compareLines[index] ?? "", changed: (currentLines[index] ?? "").trim() !== (compareLines[index] ?? "").trim() }));
   }, [compareJson, json]);
+
+  const openDocument = (name: string, content: string) => {
+    setDocumentName(name);
+    setJson(content);
+    setStatus("valid");
+    setFormatMessage("");
+    setActiveSection("current");
+    setView("editor");
+    setCompareOpen(false);
+  };
 
   const updateJson = (value: string) => {
     setJson(value);
@@ -272,17 +294,17 @@ export default function Index() {
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <aside className="hidden w-[232px] shrink-0 border-r border-[#e9eaf2] bg-white px-4 py-6 lg:block">
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
+          <button onClick={() => openDocument("untitled.json", "{\n  \n}")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
             <FilePlus2 size={17} /> New document
           </button>
           <nav className="mt-7 space-y-1">
-            <button className="sidebar-link sidebar-link-active"><FileJson2 size={17} /> Current document</button>
-            <button className="sidebar-link"><FolderOpen size={17} /> My documents</button>
+            <button onClick={() => setActiveSection("current")} className={`sidebar-link ${activeSection === "current" ? "sidebar-link-active" : ""}`}><FileJson2 size={17} /> Current document</button>
+            <button onClick={() => setActiveSection("documents")} className={`sidebar-link ${activeSection === "documents" ? "sidebar-link-active" : ""}`}><FolderOpen size={17} /> My documents</button>
           </nav>
           <div className="mt-9 border-t border-[#eef0f5] pt-5">
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Recent</p>
-            <button className="recent-link"><span className="h-2 w-2 rounded-full bg-[#0f766e]" /> northstar-api.json</button>
-            <button className="recent-link"><span className="h-2 w-2 rounded-full bg-[#ffb64d]" /> webhook-payload.json</button>
+            <button onClick={() => openDocument("northstar-api.json", initialJson)} className={`recent-link ${documentName === "northstar-api.json" ? "bg-[#f4fbfa] text-[#0f766e]" : ""}`}><span className="h-2 w-2 rounded-full bg-[#0f766e]" /> northstar-api.json</button>
+            <button onClick={() => openDocument("webhook-payload.json", webhookJson)} className={`recent-link ${documentName === "webhook-payload.json" ? "bg-[#fff8eb] text-amber-700" : ""}`}><span className="h-2 w-2 rounded-full bg-[#ffb64d]" /> webhook-payload.json</button>
           </div>
           <div className="mt-auto rounded-xl bg-[#f3f2ff] px-4 py-4 text-sm text-[#4d46c9]">
             <Sparkles size={18} className="mb-2" />
@@ -294,7 +316,7 @@ export default function Index() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-col gap-4 border-b border-[#e6e8f0] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> Workspace <span>/</span> <span className="truncate font-semibold text-slate-700">northstar-api.json</span></div>
+              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <span className="truncate font-semibold text-slate-700">{documentName}</span></div>
               <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[#0f766e]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
