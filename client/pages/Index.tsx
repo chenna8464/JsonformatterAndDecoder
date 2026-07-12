@@ -150,16 +150,18 @@ export default function Index() {
   const [documentName, setDocumentName] = useState("northstar-api.json");
   const [activeDocumentKey, setActiveDocumentKey] = useState<string | null>("northstar-api.json");
   const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
-  const [documents, setDocuments] = useState<DocumentRecord[]>(starterDocuments);
+  const [workspaceDocuments, setWorkspaceDocuments] = useState<Record<number, DocumentRecord[]>>({ 1: starterDocuments, 2: [] });
   const [workspaces, setWorkspaces] = useState<Workspace[]>(starterWorkspaces);
   const [workspaceId, setWorkspaceId] = useState(1);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState("");
+  const [workspaceDraftType, setWorkspaceDraftType] = useState<Workspace["type"]>("Personal");
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const workspace = workspaces.find((item) => item.id === workspaceId) || workspaces[0];
+  const documents = workspaceDocuments[workspaceId] || [];
   const lineCount = useMemo(() => json.split("\n").length, [json]);
   const differences = useMemo(() => {
     try {
@@ -179,26 +181,46 @@ export default function Index() {
   const createWorkspace = () => {
     const name = workspaceDraft.trim();
     if (!name) return;
-    const next = { id: Date.now(), name, type: "Personal" as const, color: "bg-[#e07a5f]" };
+    const next = { id: Date.now(), name, type: workspaceDraftType, color: workspaceDraftType === "Team" ? "bg-[#7c5ce3]" : "bg-[#e07a5f]" };
     setWorkspaces((current) => [...current, next]);
+    setWorkspaceDocuments((current) => ({ ...current, [next.id]: [] }));
     setWorkspaceId(next.id);
+    setActiveDocumentKey(null);
+    setDocumentName("untitled.json");
+    setJson("{\n  \n}");
+    setActiveSection("documents");
     setWorkspaceDraft("");
+    setWorkspaceDraftType("Personal");
     setWorkspaceMenuOpen(false);
-    setFormatMessage(`Switched to ${name}`);
+    setFormatMessage(`Created ${next.type.toLowerCase()} workspace`);
   };
 
   const saveDocument = () => {
     const name = documentName.trim() || "untitled.json";
     const record = { name, content: json, updated: "Just now" };
-    setDocuments((current) => {
-      const existing = activeDocumentKey ? current.findIndex((document) => document.name === activeDocumentKey) : -1;
-      if (existing < 0) return [record, ...current];
-      return current.map((document, index) => index === existing ? record : document);
+    setWorkspaceDocuments((current) => {
+      const currentDocuments = current[workspaceId] || [];
+      const existing = activeDocumentKey ? currentDocuments.findIndex((document) => document.name === activeDocumentKey) : -1;
+      const nextDocuments = existing < 0 ? [record, ...currentDocuments] : currentDocuments.map((document, index) => index === existing ? record : document);
+      return { ...current, [workspaceId]: nextDocuments };
     });
     setActiveDocumentKey(name);
     setDocumentName(name);
     setFormatMessage("Saved to My documents");
     setActiveSection("current");
+  };
+
+  const switchWorkspace = (id: number) => {
+    setWorkspaceId(id);
+    setWorkspaceMenuOpen(false);
+    setActiveDocumentKey(null);
+    setDocumentName("untitled.json");
+    setJson("{\n  \n}");
+    setActiveSection("documents");
+    setView("editor");
+    setCompareOpen(false);
+    const nextWorkspace = workspaces.find((item) => item.id === id);
+    setFormatMessage(nextWorkspace ? `Switched to ${nextWorkspace.name}` : "Workspace switched");
   };
 
   const createDocument = () => {
@@ -352,7 +374,7 @@ export default function Index() {
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <aside className="hidden w-[232px] shrink-0 border-r border-[#e9eaf2] bg-white px-4 py-6 lg:block">
-          <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-3 text-left transition hover:border-[#9ed3c8]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[#e3e6ef] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => { setWorkspaceId(item.id); setWorkspaceMenuOpen(false); setFormatMessage(`Switched to ${item.name}`); }} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[#e6f7f4] text-[#0f766e]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[#eef0f5]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[#e3e6ef] px-2.5 py-2 text-xs outline-none focus:border-[#9ed3c8]" /><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[#172033] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
+          <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-3 text-left transition hover:border-[#9ed3c8]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[#e3e6ef] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[#e6f7f4] text-[#0f766e]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[#eef0f5]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[#e3e6ef] px-2.5 py-2 text-xs outline-none focus:border-[#9ed3c8]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[#e6f7f4] text-[#0f766e]" : "bg-slate-50 text-slate-400"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[#eeeaff] text-[#6b4ec4]" : "bg-slate-50 text-slate-400"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[#172033] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
           <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
             <FilePlus2 size={17} /> New document
           </button>
