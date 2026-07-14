@@ -15,6 +15,8 @@ import {
   Maximize2,
   MessageSquare,
   MessageSquarePlus,
+  Pencil,
+  Share2,
   MoreHorizontal,
   Plus,
   Search,
@@ -60,7 +62,7 @@ const webhookJson = `{
   }
 }`;
 
-type Note = { id: number; title: string; text: string; path: string; line: number; color: string };
+type Note = { id: number; title: string; text: string; path: string; line: number; mention: string; color: string };
 type DocumentRecord = { name: string; content: string; updated: string };
 type Workspace = { id: number; name: string; type: "Personal" | "Team"; color: string };
 
@@ -122,6 +124,7 @@ const starterNotes: Note[] = [
     text: "Check whether this needs to be raised before the partner launch.",
     path: "settings.rateLimit",
     line: 20,
+    mention: "",
     color: "bg-amber-400",
   },
   {
@@ -130,6 +133,7 @@ const starterNotes: Note[] = [
     text: "Consider a v2 route before we add bulk updates here.",
     path: "endpoints[1]",
     line: 14,
+    mention: "",
     color: "bg-violet-400",
   },
 ];
@@ -140,6 +144,8 @@ export default function Index() {
   const [notes, setNotes] = useState<Note[]>(starterNotes);
   const [noteText, setNoteText] = useState("");
   const [noteTitle, setNoteTitle] = useState("");
+  const [noteMention, setNoteMention] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [showComposer, setShowComposer] = useState(false);
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState(false);
@@ -159,6 +165,8 @@ export default function Index() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareJson, setCompareJson] = useState(initialJson.replace('"rateLimit": 100', '"rateLimit": 120'));
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const compareCurrentRef = useRef<HTMLTextAreaElement>(null);
+  const compareRef = useRef<HTMLTextAreaElement>(null);
 
   const workspace = workspaces.find((item) => item.id === workspaceId) || workspaces[0];
   const documents = workspaceDocuments[workspaceId] || [];
@@ -330,20 +338,45 @@ export default function Index() {
     if (!noteText.trim()) return;
     const lineText = json.split("\n")[commentLine - 1] || "";
     const key = lineText.match(/"([^"\\]+)"\s*:/)?.[1] || `line ${commentLine}`;
-    setNotes((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        title: noteTitle.trim() || "Untitled note",
-        text: noteText.trim(),
-        path: key,
-        line: commentLine,
-        color: "bg-cyan-400",
-      },
-    ]);
+    const note = { id: editingNoteId || Date.now(), title: noteTitle.trim() || "Untitled note", text: noteText.trim(), path: key, line: commentLine, mention: noteMention.trim(), color: "bg-cyan-400" };
+    setNotes((current) => editingNoteId ? current.map((item) => item.id === editingNoteId ? { ...item, ...note } : item) : [...current, note]);
     setNoteTitle("");
     setNoteText("");
+    setNoteMention("");
+    setEditingNoteId(null);
     setShowComposer(false);
+  };
+
+  const editNote = (note: Note) => {
+    setEditingNoteId(note.id);
+    setNoteTitle(note.title);
+    setNoteText(note.text);
+    setNoteMention(note.mention);
+    setCommentLine(note.line);
+    setShowComposer(true);
+  };
+
+  const shareDocument = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: documentName, text: json });
+      return;
+    }
+    await navigator.clipboard.writeText(json);
+    setFormatMessage("JSON copied for sharing");
+  };
+
+  const jumpToCompareLine = (line: number) => {
+    const jump = (editor: HTMLTextAreaElement | null, content: string) => {
+      if (!editor) return;
+      const lines = content.split("\n");
+      const target = Math.max(0, Math.min(lines.length - 1, line - 1));
+      const start = lines.slice(0, target).join("\n").length + (target ? 1 : 0);
+      editor.focus();
+      editor.setSelectionRange(start, start + lines[target].length);
+      editor.scrollTop = Math.max(0, target * 24 - editor.clientHeight / 3);
+    };
+    jump(compareCurrentRef.current, json);
+    jump(compareRef.current, compareJson);
   };
 
   const visibleNotes = notes.filter((note) =>
@@ -404,6 +437,7 @@ export default function Index() {
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
               <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]" : ""}`}><GitCompare size={16} /> Compare</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
+              <button onClick={shareDocument} className="tool-button"><Share2 size={16} /> Share</button>
               <button onClick={copyJson} className="tool-button">{copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}{copied ? "Copied" : "Copy"}</button>
               <button onClick={downloadJson} className="grid h-9 w-9 place-items-center rounded-lg bg-[#172033] text-white transition hover:bg-slate-700" aria-label="Download JSON"><Download size={16} /></button>
             </div>
@@ -412,7 +446,8 @@ export default function Index() {
           <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
             <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
               {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex items-start justify-between"><div><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
-              {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><div className="flex-1 overflow-auto bg-[#fafbfc] py-3 font-mono text-xs leading-6">{lineDiffs.map((item) => <div key={item.line} className={`flex min-w-max gap-3 px-4 ${item.changed ? "bg-rose-50 text-rose-700" : "text-slate-600"}`}><span className="w-7 select-none text-right text-slate-300">{item.line}</span><span>{item.current || " "}</span></div>)}</div></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /><div className="border-t border-[#d9eeea] bg-[#f4fbfa] px-4 py-2 text-[10px] font-semibold text-[#0f766e]">Changed lines are highlighted in the current document</div></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences <span className="ml-2 text-xs font-normal text-slate-400">{lineDiffs.filter((item) => item.changed).length ? `at lines ${lineDiffs.filter((item) => item.changed).map((item) => item.line).join(", ")}` : "No changed lines"}</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
+              {compareOpen && <div className="absolute bottom-0 left-0 right-0 z-30 max-h-44 overflow-auto border-t border-[#dce6e5] bg-white/95 p-3 shadow-[0_-8px_25px_rgba(23,32,51,0.08)]"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-700">Line changes</p><span className="text-[10px] text-slate-400">Click to jump in both panes</span></div><div className="space-y-1">{lineDiffs.filter((item) => item.changed).map((item) => <button key={item.line} onClick={() => jumpToCompareLine(item.line)} className="grid w-full gap-2 rounded-lg border border-[#ebeaf2] bg-white p-2 text-left text-[11px] hover:border-[#9ed3c8] sm:grid-cols-[56px_1fr_1fr]"><span className="font-mono font-bold text-[#0f766e]">Line {item.line}</span><span className="truncate text-rose-600">− {item.current || "missing"}</span><span className="truncate text-emerald-600">+ {item.compare || "missing"}</span></button>)}</div></div>}
+              {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white"><div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3"><div><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Paste another document to find changed, added, or removed values.</p></div><button onClick={() => setCompareOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button></div><div className="grid flex-1 gap-4 overflow-auto p-4 xl:grid-cols-2"><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]"><div className="border-b border-[#edf0f4] px-4 py-3 text-xs font-bold text-slate-600">Current JSON</div><textarea ref={compareCurrentRef} aria-label="Current JSON comparison" value={json} onChange={(event) => updateJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-[#fafbfc] p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /></div><div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]"><div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-3 text-xs font-bold text-[#0f766e]">Compare with</div><textarea ref={compareRef} aria-label="Compare JSON" value={compareJson} onChange={(event) => setCompareJson(event.target.value)} spellCheck={false} className="min-h-[280px] flex-1 resize-none bg-white p-4 font-mono text-xs leading-6 text-slate-600 outline-none" /><div className="border-t border-[#d9eeea] bg-[#f4fbfa] px-4 py-2 text-[10px] font-semibold text-[#0f766e]">Changed lines are highlighted in the current document</div></div><div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4"><div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences <span className="ml-2 text-xs font-normal text-slate-400">{lineDiffs.filter((item) => item.changed).length ? `at lines ${lineDiffs.filter((item) => item.changed).map((item) => item.line).join(", ")}` : "No changed lines"}</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${differences.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{differences.length ? `${differences.length} changes` : "No changes"}</span></div>{differences.length > 0 ? <div className="mt-3 space-y-2">{differences.map((difference) => <div key={difference.path} className="grid gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-xs sm:grid-cols-[1fr_1fr_1fr]"><span className="font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="text-rose-600">− {difference.before}</span><span className="text-emerald-600">+ {difference.after}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-400">The two JSON documents match.</p>}</div></div></div>}
               <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button></div>
                 <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button className="text-slate-500 hover:text-slate-900"><Maximize2 size={16} /></button></div>
@@ -430,9 +465,9 @@ export default function Index() {
                 <div className="relative mt-4"><Search size={15} className="absolute left-3 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full rounded-lg border border-[#e6e8f0] bg-[#fafbfc] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[#8f88ec]" /></div>
               </div>
               <div className="space-y-3 p-4">
-                {visibleNotes.map((note) => <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[#ebeaf2] p-4 transition hover:border-[#cfcced] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="absolute right-2 top-2 hidden rounded p-1 text-slate-400 hover:bg-slate-100 group-hover:block" aria-label="Remove note"><X size={14} /></button><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p><div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[#0f766e]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
+                {visibleNotes.map((note) => <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[#ebeaf2] p-4 transition hover:border-[#cfcced] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex"><button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button></div><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>{note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[#0f766e]">Mentioned: @{note.mention}</p>}<div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[#0f766e]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
                 {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
-                {showComposer ? <div className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => setShowComposer(false)} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">Save note</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9ed3c8] py-3 text-sm font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]"><MessageSquarePlus size={16} /> Add reference note</button>}
+                {showComposer ? <div className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><MessageSquare size={13} /> {editingNoteId ? "Edit comment" : "Comment"} on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[#d9eeea] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">{editingNoteId ? "Update note" : "Save note"}</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9ed3c8] py-3 text-sm font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]"><MessageSquarePlus size={16} /> Add reference note</button>}
               </div>
             </aside>
           </div>
