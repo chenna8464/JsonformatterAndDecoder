@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Project uses pnpm (see packageManager in package.json); ignore the npm lockfile
+# that gets generated when installing with npm on a machine without pnpm.
+package-lock.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
