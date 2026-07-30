@@ -34,10 +34,13 @@
 }
 
 @layer components {
-  .header-button { @apply grid h-9 place-items-center gap-2 rounded-lg px-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800; }
-  .sidebar-link { @apply flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800; }
+  .app-focus { @apply outline-none transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.97]; }
+  .header-button { @apply app-focus flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800; }
+  .sidebar-link { @apply app-focus flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800; }
   .sidebar-link-active { @apply bg-[#e6f7f4] text-[#0f766e]; }
-  .recent-link { @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-500 transition hover:bg-slate-50; }
-  .tool-button { @apply flex h-9 items-center gap-2 rounded-lg border border-[#dce6e5] bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa] hover:text-[#0f766e]; }
+  .recent-link { @apply app-focus flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-500 transition hover:bg-slate-50; }
+  .menu-item { @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[#f4fbfa] hover:text-[#0f766e]; }
+  .menu-hint { @apply justify-self-end whitespace-nowrap text-[10px] font-medium text-slate-400; }
+  .tool-button { @apply app-focus flex h-9 items-center gap-2 rounded-lg border border-[#dce6e5] bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa] hover:text-[#0f766e]; }
   .tab-active { @apply relative text-sm font-bold text-[#0f766e] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[#0f766e]; }
 }
