@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap, gutter, GutterMarker } from "@codemirror/view";
-import { EditorState, Compartment, RangeSet, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { json } from "@codemirror/lang-json";
 import { foldGutter, foldKeymap, bracketMatching, syntaxHighlighting, HighlightStyle, indentOnInput } from "@codemirror/language";
@@ -18,9 +18,10 @@ type Props = {
   noteLines: number[];
   onNoteClick: (line: number) => void;
   onContextMenu: (line: number, x: number, y: number) => void;
+  dark?: boolean;
 };
 
-const jsonHighlight = HighlightStyle.define([
+const jsonHighlightLight = HighlightStyle.define([
   { tag: tags.propertyName, color: "#1d4ed8", fontWeight: "600" },
   { tag: tags.string, color: "#15803d" },
   { tag: tags.number, color: "#dc2626" },
@@ -30,18 +31,28 @@ const jsonHighlight = HighlightStyle.define([
   { tag: tags.bracket, color: "#475569" },
 ]);
 
+const jsonHighlightDark = HighlightStyle.define([
+  { tag: tags.propertyName, color: "#7aa2f7", fontWeight: "600" },
+  { tag: tags.string, color: "#9ece6a" },
+  { tag: tags.number, color: "#f7768e" },
+  { tag: tags.bool, color: "#e0af68", fontWeight: "600" },
+  { tag: tags.null, color: "#bb9af7", fontWeight: "600" },
+  { tag: tags.separator, color: "#9aa2b1" },
+  { tag: tags.bracket, color: "#c0caf5" },
+]);
+
 const editorTheme = EditorView.theme({
   "&": { height: "100%", fontSize: "13px", backgroundColor: "transparent" },
   ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", lineHeight: "25px", overflow: "auto" },
   ".cm-content": { padding: "16px 0" },
   ".cm-line": { padding: "0 16px" },
   "&.cm-focused": { outline: "none" },
-  ".cm-gutters": { backgroundColor: "#f7f8fb", borderRight: "1px solid #eff1f6", color: "#b6bdcc" },
-  ".cm-activeLineGutter": { backgroundColor: "#eef4f3", color: "#0f766e" },
-  ".cm-activeLine": { backgroundColor: "rgba(15, 118, 110, 0.04)" },
-  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "#8a94a6" },
-  ".cm-foldPlaceholder": { backgroundColor: "#e6f7f4", border: "1px solid #9ed3c8", color: "#0f766e", borderRadius: "4px", padding: "0 6px", margin: "0 4px" },
-  ".cm-selectionMatch": { backgroundColor: "#fef3c7" },
+  ".cm-gutters": { backgroundColor: "var(--surface-page)", borderRight: "1px solid var(--edge-soft)", color: "var(--cm-gutter-ink)" },
+  ".cm-activeLineGutter": { backgroundColor: "var(--brand-soft-hover)", color: "var(--brand)" },
+  ".cm-activeLine": { backgroundColor: "var(--cm-active-line)" },
+  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--cm-fold-ink)" },
+  ".cm-foldPlaceholder": { backgroundColor: "var(--brand-soft)", border: "1px solid var(--brand-border)", color: "var(--brand)", borderRadius: "4px", padding: "0 6px", margin: "0 4px" },
+  ".cm-selectionMatch": { backgroundColor: "var(--cm-selection-match)" },
 });
 
 class NoteMarker extends GutterMarker {
@@ -49,7 +60,7 @@ class NoteMarker extends GutterMarker {
     const el = document.createElement("span");
     el.textContent = "●";
     el.title = "Jump to comment";
-    el.style.cssText = "color:#0f766e;cursor:pointer;font-size:9px;";
+    el.style.cssText = "color:var(--brand);cursor:pointer;font-size:9px;";
     return el;
   }
 }
@@ -83,12 +94,13 @@ const buildNoteGutter = (noteLines: number[], onNoteClick: (line: number) => voi
   });
 
 const JsonCodeEditor = forwardRef<JsonCodeEditorHandle, Props>(function JsonCodeEditor(
-  { value, onChange, noteLines, onNoteClick, onContextMenu },
+  { value, onChange, noteLines, onNoteClick, onContextMenu, dark = false },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const notesCompartment = useRef(new Compartment());
+  const highlightCompartment = useRef(new Compartment());
   const callbacks = useRef({ onChange, onNoteClick, onContextMenu });
   callbacks.current = { onChange, onNoteClick, onContextMenu };
 
@@ -104,7 +116,7 @@ const JsonCodeEditor = forwardRef<JsonCodeEditorHandle, Props>(function JsonCode
           foldGutter({ openText: "▾", closedText: "▸" }),
           history(),
           json(),
-          syntaxHighlighting(jsonHighlight),
+          highlightCompartment.current.of(syntaxHighlighting(dark ? jsonHighlightDark : jsonHighlightLight)),
           bracketMatching(),
           indentOnInput(),
           highlightActiveLine(),
@@ -147,6 +159,15 @@ const JsonCodeEditor = forwardRef<JsonCodeEditorHandle, Props>(function JsonCode
       effects: notesCompartment.current.reconfigure(buildNoteGutter(noteLines, (line) => callbacks.current.onNoteClick(line))),
     });
   }, [noteLines]);
+
+  // Theme toggled — swap the syntax highlighting palette.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: highlightCompartment.current.reconfigure(syntaxHighlighting(dark ? jsonHighlightDark : jsonHighlightLight)),
+    });
+  }, [dark]);
 
   useImperativeHandle(ref, () => ({
     jumpToLine: (line: number) => {

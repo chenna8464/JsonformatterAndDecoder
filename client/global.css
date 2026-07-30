@@ -26,21 +26,165 @@
     --input: 227 26% 92%;
     --ring: 171 77% 34%;
     --radius: 0.75rem;
+
+    /* JotJSON app tokens — light. Mirrors the hex values the UI was built
+       with, so light mode is pixel-identical to before theming existed. */
+    --surface-page: #f6f7fb;
+    --surface: #ffffff;
+    --surface-soft: #fafbfc;
+    --edge: #e3e6ef;
+    --edge-soft: #eef0f5;
+    --ink: #172033;
+    --brand: #0f766e;
+    --brand-border: #9ed3c8;
+    --brand-soft: #e6f7f4;
+    --brand-soft-hover: #f4fbfa;
+    --brand-soft-border: #d9eeea;
+    --brand-selection: #b5e3db;
+    --violet: #7c5ce3;
+    --violet-light: #9b8cff;
+    --violet-dark: #6257e8;
+    --violet-ink: #4d46c9;
+    --violet-muted: #716bd2;
+    --violet-soft: #eeeaff;
+    --violet-soft-bg: #f3f2ff;
+    --terracotta: #e07a5f;
+    --amber-dot: #ffb64d;
+    --cm-gutter-ink: #b6bdcc;
+    --cm-fold-ink: #8a94a6;
+    --cm-active-line: rgba(15, 118, 110, 0.04);
+    --cm-selection-match: #fef3c7;
+    --brand-ring: rgba(15, 118, 110, 0.4);
+    --brand-shadow: rgba(99, 102, 241, 0.25);
+
+    /* Fixed brand-mark tokens — intentionally NOT overridden under .dark, so
+       the logo and a couple of solid "always dark" buttons keep their look
+       regardless of theme instead of inheriting --ink's light/dark flip. */
+    --ink-solid: #172033;
+    --neutral-shadow: rgba(100, 116, 139, 0.35);
+  }
+
+  .dark {
+    --background: 222 30% 8%;
+    --foreground: 220 20% 92%;
+    --card: 222 26% 11%;
+    --card-foreground: 220 20% 92%;
+    --popover: 222 26% 11%;
+    --popover-foreground: 220 20% 92%;
+    --primary: 168 60% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 220 20% 92%;
+    --muted: 222 22% 16%;
+    --muted-foreground: 220 12% 65%;
+    --accent: 171 40% 18%;
+    --accent-foreground: 168 57% 82%;
+    --destructive: 0 63% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 20% 20%;
+    --input: 222 20% 20%;
+    --ring: 168 60% 42%;
+
+    /* JotJSON app tokens — dark */
+    --surface-page: #0d1117;
+    --surface: #161b22;
+    --surface-soft: #1c2129;
+    --edge: #2a2f3a;
+    --edge-soft: #232830;
+    --ink: #e6e9f0;
+    --brand: #2dd4bf;
+    --brand-border: #1f5f57;
+    --brand-soft: #103733;
+    --brand-soft-hover: #14403b;
+    --brand-soft-border: #1c4b46;
+    --brand-selection: #1f5f57;
+    --violet: #a394f0;
+    --violet-light: #b3a8f5;
+    --violet-dark: #8b7cf0;
+    --violet-ink: #c3bcf7;
+    --violet-muted: #b0a6f2;
+    --violet-soft: #2a2650;
+    --violet-soft-bg: #242047;
+    --terracotta: #e2926f;
+    --amber-dot: #e0a94a;
+    --cm-gutter-ink: #565f70;
+    --cm-fold-ink: #6b7280;
+    --cm-active-line: rgba(45, 212, 191, 0.06);
+    --cm-selection-match: rgba(224, 169, 74, 0.25);
+    --brand-ring: rgba(45, 212, 191, 0.4);
+    --brand-shadow: rgba(0, 0, 0, 0.45);
   }
 
   * { @apply border-border; }
   body { @apply bg-background text-foreground; font-family: "Manrope", sans-serif; }
   button, input, textarea { font: inherit; }
+
 }
 
 @layer components {
-  .app-focus { @apply outline-none transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.97]; }
+  .app-focus { @apply outline-none transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] active:scale-[0.97]; }
   .header-button { @apply app-focus flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800; }
   .sidebar-link { @apply app-focus flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800; }
-  .sidebar-link-active { @apply bg-[#e6f7f4] text-[#0f766e]; }
+  .sidebar-link-active { @apply bg-[var(--brand-soft)] text-[var(--brand)]; }
   .recent-link { @apply app-focus flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-500 transition hover:bg-slate-50; }
-  .menu-item { @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[#f4fbfa] hover:text-[#0f766e]; }
+  .menu-item { @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]; }
   .menu-hint { @apply justify-self-end whitespace-nowrap text-[10px] font-medium text-slate-400; }
-  .tool-button { @apply app-focus flex h-9 items-center gap-2 rounded-lg border border-[#dce6e5] bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa] hover:text-[#0f766e]; }
-  .tab-active { @apply relative text-sm font-bold text-[#0f766e] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[#0f766e]; }
+  .tool-button { @apply app-focus flex h-9 items-center gap-2 rounded-lg border border-[var(--edge)] bg-[var(--surface)] px-3 text-xs font-bold text-slate-600 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]; }
+  .tab-active { @apply relative text-sm font-bold text-[var(--brand)] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[var(--brand)]; }
+}
+
+@layer utilities {
+  /* Dark-mode overrides for the app's literal Tailwind palette classes
+     (bg-white, text-slate-400, etc.) used throughout client/pages/Index.tsx.
+     Overriding by class keeps every existing className untouched instead of
+     threading dark: variants through hundreds of template-literal strings. */
+  .dark .bg-white { background-color: var(--surface); }
+  .dark .bg-white\/95 { background-color: color-mix(in srgb, var(--surface) 95%, transparent); }
+  .dark .hover\:bg-white:hover { background-color: var(--surface); }
+  .dark .bg-slate-50 { background-color: var(--surface-soft); }
+  .dark .bg-slate-100 { background-color: var(--edge-soft); }
+  .dark .hover\:bg-slate-50:hover { background-color: var(--surface-soft); }
+  .dark .hover\:bg-slate-100:hover { background-color: var(--edge-soft); }
+  .dark .bg-slate-900\/40 { background-color: rgba(0, 0, 0, 0.6); }
+
+  .dark .text-slate-300 { color: #6b7280; }
+  .dark .text-slate-400 { color: #8b93a3; }
+  .dark .text-slate-500 { color: #9aa2b1; }
+  .dark .text-slate-600 { color: #b7bdc9; }
+  .dark .text-slate-700 { color: #d3d7de; }
+  .dark .text-slate-800 { color: var(--ink); }
+  .dark .hover\:text-slate-700:hover { color: #d3d7de; }
+  .dark .hover\:text-slate-800:hover { color: var(--ink); }
+  .dark .hover\:text-slate-900:hover { color: var(--ink); }
+  .dark .placeholder\:text-slate-400::placeholder { color: #6b7280; }
+
+  .dark .text-rose-600 { color: #f87171; }
+  .dark .text-rose-700 { color: #fca5a5; }
+  .dark .bg-rose-50 { background-color: rgba(248, 113, 113, 0.12); }
+  .dark .bg-rose-100 { background-color: rgba(248, 113, 113, 0.18); }
+  .dark .bg-rose-100\/90 { background-color: rgba(248, 113, 113, 0.22); }
+  .dark .bg-rose-500 { background-color: #ef4444; }
+  .dark .border-rose-100 { border-color: rgba(248, 113, 113, 0.25); }
+
+  .dark .text-emerald-500 { color: #34d399; }
+  .dark .text-emerald-600 { color: #34d399; }
+  .dark .text-emerald-700 { color: #6ee7b7; }
+  .dark .bg-emerald-50 { background-color: rgba(52, 211, 153, 0.12); }
+  .dark .bg-emerald-100 { background-color: rgba(52, 211, 153, 0.18); }
+  .dark .bg-emerald-100\/90 { background-color: rgba(52, 211, 153, 0.22); }
+  .dark .bg-emerald-500 { background-color: #22c55e; }
+  .dark .border-emerald-100 { border-color: rgba(52, 211, 153, 0.25); }
+
+  .dark .text-amber-600 { color: #fbbf24; }
+  .dark .text-amber-700 { color: #fcd34d; }
+  .dark .bg-amber-50 { background-color: rgba(251, 191, 36, 0.12); }
+  .dark .bg-amber-100 { background-color: rgba(251, 191, 36, 0.18); }
+  .dark .bg-amber-100\/80 { background-color: rgba(251, 191, 36, 0.2); }
+  .dark .bg-amber-400 { background-color: #f59e0b; }
+
+  .dark .text-violet-600 { color: var(--violet-light); }
+  .dark .bg-violet-400 { background-color: var(--violet); }
+  .dark .text-sky-600 { color: #38bdf8; }
+  .dark .text-blue-600 { color: #60a5fa; }
+  .dark .hover\:text-blue-800:hover { color: #93c5fd; }
 }

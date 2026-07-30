@@ -27,6 +27,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Sun,
+  Moon,
+  Laptop,
   MessageSquare,
   MessageSquarePlus,
   Pencil,
@@ -85,6 +88,7 @@ import { buildComparisonReport, diffLines, lineStatusMaps, valueDiffs, type Line
 import { buildShareLink, copyText, downloadFile, readShareLink } from "@/lib/share";
 import { csvToJson, jsonToCsv, queryJson, setAtPath } from "@/lib/convert";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import { validateAgainstSchema, type SchemaIssue } from "@/lib/schema";
 import { arrayObjectFields, sortJsonValue, type SortDirection } from "@/lib/sort";
 import JsonCodeEditor, { type JsonCodeEditorHandle } from "@/components/JsonCodeEditor";
@@ -134,7 +138,7 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
               if (event.key === "Enter") commit();
               if (event.key === "Escape") setEditing(false);
             }}
-            className="min-w-[120px] rounded border border-[#9ed3c8] bg-white px-1.5 py-0.5 font-mono text-xs text-slate-700 outline-none"
+            className="min-w-[120px] rounded border border-[var(--brand-border)] bg-white px-1.5 py-0.5 font-mono text-xs text-slate-700 outline-none"
           />
         ) : (
           <>
@@ -143,14 +147,14 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
             ) : (
               <button
                 onClick={() => { if (onEdit) { setDraft(JSON.stringify(value)); setEditing(true); } }}
-                className={`rounded px-0.5 text-left ${typeof value === "string" ? "text-amber-600" : typeof value === "boolean" ? "text-violet-600" : "text-sky-600"} ${onEdit ? "cursor-text hover:bg-[#e6f7f4] hover:outline hover:outline-1 hover:outline-[#9ed3c8]" : ""}`}
+                className={`rounded px-0.5 text-left ${typeof value === "string" ? "text-amber-600" : typeof value === "boolean" ? "text-violet-600" : "text-sky-600"} ${onEdit ? "cursor-text hover:bg-[var(--brand-soft)] hover:outline hover:outline-1 hover:outline-[var(--brand-border)]" : ""}`}
                 title={onEdit ? "Click to edit value" : undefined}
               >
                 {JSON.stringify(value)}
               </button>
             )}
 
-            {onEdit && <button onClick={() => { setDraft(JSON.stringify(value)); setEditing(true); }} className="hidden text-slate-300 hover:text-[#0f766e] group-hover:block" aria-label="Edit value"><Pencil size={11} /></button>}
+            {onEdit && <button onClick={() => { setDraft(JSON.stringify(value)); setEditing(true); }} className="hidden text-slate-300 hover:text-[var(--brand)] group-hover:block" aria-label="Edit value"><Pencil size={11} /></button>}
           </>
         )}
       </div>
@@ -159,7 +163,7 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
 
   return (
     <div>
-      <button onClick={() => setOpen((current) => !current)} className="flex items-center gap-1.5 py-1.5 text-left font-mono text-xs font-semibold text-slate-700 hover:text-[#0f766e]" style={{ paddingLeft: depth * 20 }}>
+      <button onClick={() => setOpen((current) => !current)} className="flex items-center gap-1.5 py-1.5 text-left font-mono text-xs font-semibold text-slate-700 hover:text-[var(--brand)]" style={{ paddingLeft: depth * 20 }}>
         <ChevronDown size={13} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         <span>{label}</span>
         <span className="font-normal text-slate-400">{preview}</span>
@@ -216,7 +220,7 @@ function DiffPane({ value, onChange, statuses, editorRef, ariaLabel }: DiffPaneP
         onScroll={syncScroll}
         spellCheck={false}
         wrap="off"
-        className="absolute inset-0 h-full w-full resize-none whitespace-pre bg-transparent p-4 font-mono text-xs leading-6 text-transparent caret-slate-700 outline-none selection:bg-[#b5e3db] selection:text-transparent"
+        className="absolute inset-0 h-full w-full resize-none whitespace-pre bg-transparent p-4 font-mono text-xs leading-6 text-transparent caret-slate-700 outline-none selection:bg-[var(--brand-selection)] selection:text-transparent"
       />
     </div>
   );
@@ -267,9 +271,9 @@ function ComparePane({ value, onChange, statuses, editorRef, ariaLabel }: Compar
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-1 border-b border-[#edf0f4] bg-[#fafbfc] px-2 py-1.5">
+      <div className="flex items-center gap-1 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-2 py-1.5">
         {(["editor", "tree", "query"] as PaneMode[]).map((item) => (
-          <button key={item} onClick={() => setMode(item)} className={`rounded-md px-2.5 py-1 text-[11px] font-bold capitalize transition ${mode === item ? "bg-[#0f766e] text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-[#0f766e]"}`}>
+          <button key={item} onClick={() => setMode(item)} className={`rounded-md px-2.5 py-1 text-[11px] font-bold capitalize transition ${mode === item ? "bg-[var(--brand)] text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-[var(--brand)]"}`}>
             {item === "editor" ? "Text" : item}
           </button>
         ))}
@@ -287,16 +291,16 @@ function ComparePane({ value, onChange, statuses, editorRef, ariaLabel }: Compar
       )}
       {mode === "query" && (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="border-b border-[#edf0f4] p-2.5">
-            <input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="e.g. items[?price>100].name — dot paths, [index], [*], filters" spellCheck={false} className="w-full rounded-lg border border-[#e3e6ef] bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-[#9ed3c8]" />
+          <div className="border-b border-[var(--edge)] p-2.5">
+            <input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="e.g. items[?price>100].name — dot paths, [index], [*], filters" spellCheck={false} className="w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-[var(--brand-border)]" />
           </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-auto bg-[#fafbfc] p-2.5">
+          <div className="min-h-0 flex-1 space-y-2 overflow-auto bg-[var(--surface-soft)] p-2.5">
             {parsed.error && <div className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">Fix the JSON syntax to query this document.</div>}
             {!parsed.error && matches.slice(0, limit).map((match) => (
-              <div key={match.path} className="rounded-lg border border-[#ebeaf2] bg-white p-2.5">
+              <div key={match.path} className="rounded-lg border border-[var(--edge-soft)] bg-white p-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="break-all font-mono text-[10px] font-bold text-[#0f766e]">{match.path}</p>
-                  <button onClick={async () => { if (await copyText(JSON.stringify(match.value, null, 2))) toast.success("Copied"); }} className="shrink-0 rounded p-1 text-slate-300 transition hover:text-[#0f766e]" aria-label="Copy this value"><Copy size={12} /></button>
+                  <p className="break-all font-mono text-[10px] font-bold text-[var(--brand)]">{match.path}</p>
+                  <button onClick={async () => { if (await copyText(JSON.stringify(match.value, null, 2))) toast.success("Copied"); }} className="shrink-0 rounded p-1 text-slate-300 transition hover:text-[var(--brand)]" aria-label="Copy this value"><Copy size={12} /></button>
                 </div>
                 {typeof match.value === "string" && /^https?:\/\/\S+$/i.test(match.value) ? (
                   <a href={match.value} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all font-mono text-[11px] leading-5 text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{match.value}</a>
@@ -305,7 +309,7 @@ function ComparePane({ value, onChange, statuses, editorRef, ariaLabel }: Compar
                 )}
               </div>
             ))}
-            {!parsed.error && matches.length > limit && <button onClick={() => setLimit((current) => current + 100)} className="w-full rounded-lg border border-dashed border-[#9ed3c8] py-2 text-xs font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]">Show 100 more ({(matches.length - limit).toLocaleString()} left)</button>}
+            {!parsed.error && matches.length > limit && <button onClick={() => setLimit((current) => current + 100)} className="w-full rounded-lg border border-dashed border-[var(--brand-border)] py-2 text-xs font-bold text-[var(--brand)] transition hover:bg-[var(--brand-soft-hover)]">Show 100 more ({(matches.length - limit).toLocaleString()} left)</button>}
             {!parsed.error && matches.length === 0 && <p className="py-6 text-center text-xs text-slate-400">{queryText.trim() ? "No matches." : "Type a query to filter this document."}</p>}
           </div>
         </div>
@@ -382,28 +386,28 @@ function TableView({ json, onChange }: TableViewProps) {
   }
 
   if (!candidate) {
-    return <div className="flex min-h-0 flex-1 items-center justify-center p-6"><div className="max-w-sm rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-5 text-center text-sm text-slate-500"><TableIcon size={22} className="mx-auto mb-2 text-[#0f766e]" />Table view works with an array of objects. This document doesn't have one at the root or in a top-level field — try Tree or Query instead.</div></div>;
+    return <div className="flex min-h-0 flex-1 items-center justify-center p-6"><div className="max-w-sm rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-5 text-center text-sm text-slate-500"><TableIcon size={22} className="mx-auto mb-2 text-[var(--brand)]" />Table view works with an array of objects. This document doesn't have one at the root or in a top-level field — try Tree or Query instead.</div></div>;
   }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#edf0f4] bg-[#fafbfc] px-4 py-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><TableIcon size={15} className="text-[#0f766e]" /> {candidate.rows.length} row{candidate.rows.length === 1 ? "" : "s"} <span className="hidden sm:inline">• click a column header to sort, click a cell to edit • scroll right for more columns</span></div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><TableIcon size={15} className="text-[var(--brand)]" /> {candidate.rows.length} row{candidate.rows.length === 1 ? "" : "s"} <span className="hidden sm:inline">• click a column header to sort, click a cell to edit • scroll right for more columns</span></div>
         {candidates.length > 1 && (
           <div className="ml-auto flex items-center gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Array:</span>
             {candidates.map((c) => (
-              <button key={c.key} onClick={() => setSelectedKey(c.key)} title={`View "${c.key}" as a table`} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition ${candidate.key === c.key ? "bg-[#0f766e] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[#0f766e]"}`}><TableIcon size={12} />{c.key}</button>
+              <button key={c.key} onClick={() => setSelectedKey(c.key)} title={`View "${c.key}" as a table`} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition ${candidate.key === c.key ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}><TableIcon size={12} />{c.key}</button>
             ))}
           </div>
         )}
       </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">
         <table key={candidate.key} className="border-collapse text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-[#f7f8fb]">
+          <thead className="sticky top-0 z-10 bg-[var(--surface-page)]">
             <tr>
               {columns.map((column) => (
-                <th key={column} onClick={() => toggleSort(column)} className="cursor-pointer whitespace-nowrap border-b border-r border-[#eef0f5] px-3 py-2 font-mono font-bold text-slate-600 hover:bg-[#eef4f3]">
+                <th key={column} onClick={() => toggleSort(column)} className="cursor-pointer whitespace-nowrap border-b border-r border-[var(--edge-soft)] px-3 py-2 font-mono font-bold text-slate-600 hover:bg-[var(--brand-soft-hover)]">
                   <span className="flex items-center gap-1">{column}{sort?.field === column ? (sort.direction === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={11} className="text-slate-300" />}</span>
                 </th>
               ))}
@@ -411,19 +415,19 @@ function TableView({ json, onChange }: TableViewProps) {
           </thead>
           <tbody>
             {candidate.rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-[#fafbfc]">
+              <tr key={rowIndex} className="hover:bg-[var(--surface-soft)]">
                 {columns.map((column) => {
                   const cellValue = row[column];
                   const isUrl = typeof cellValue === "string" && /^https?:\/\/\S+$/i.test(cellValue);
                   return (
-                    <td key={column} className="border-b border-r border-[#f1f3f9] px-3 py-1.5 font-mono">
+                    <td key={column} className="border-b border-r border-[var(--edge-soft)] px-3 py-1.5 font-mono">
                       {isUrl ? (
                         <a href={cellValue as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{cellValue as string}</a>
                       ) : (
                         <input
                           defaultValue={cellValue === undefined ? "" : JSON.stringify(cellValue)}
                           onBlur={(event) => { if (event.target.value !== JSON.stringify(cellValue)) editCell(rowIndex, column, event.target.value); }}
-                          className={`w-full min-w-[80px] bg-transparent outline-none focus:bg-[#f4fbfa] ${typeof cellValue === "string" ? "text-amber-700" : typeof cellValue === "boolean" ? "text-violet-600" : typeof cellValue === "number" ? "text-sky-600" : "text-slate-400"}`}
+                          className={`w-full min-w-[80px] bg-transparent outline-none focus:bg-[var(--brand-soft-hover)] ${typeof cellValue === "string" ? "text-amber-700" : typeof cellValue === "boolean" ? "text-violet-600" : typeof cellValue === "number" ? "text-sky-600" : "text-slate-400"}`}
                         />
                       )}
                     </td>
@@ -439,8 +443,8 @@ function TableView({ json, onChange }: TableViewProps) {
 }
 
 const starterWorkspaces: Workspace[] = [
-  { id: 1, name: "Personal Office", type: "Personal", color: "bg-[#0f766e]" },
-  { id: 2, name: "API Guild", type: "Team", color: "bg-[#7c5ce3]" },
+  { id: 1, name: "Personal Office", type: "Personal", color: "bg-[var(--brand)]" },
+  { id: 2, name: "API Guild", type: "Team", color: "bg-[var(--violet)]" },
 ];
 
 const starterDocuments: DocumentRecord[] = [
@@ -470,6 +474,9 @@ const starterNotes: Note[] = [
 ];
 
 export default function Index() {
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [json, setJson] = useState(initialJson);
   const [status, setStatus] = useState<"valid" | "invalid">("valid");
   const [notes, setNotes] = useState<Note[]>(starterNotes);
@@ -593,7 +600,7 @@ export default function Index() {
   const createWorkspace = () => {
     const name = workspaceDraft.trim();
     if (!name) return;
-    const next = { id: Date.now(), name, type: workspaceDraftType, color: workspaceDraftType === "Team" ? "bg-[#7c5ce3]" : "bg-[#e07a5f]" };
+    const next = { id: Date.now(), name, type: workspaceDraftType, color: workspaceDraftType === "Team" ? "bg-[var(--violet)]" : "bg-[var(--terracotta)]" };
     setWorkspaces((current) => [...current, next]);
     setWorkspaceDocuments((current) => ({ ...current, [next.id]: [] }));
     setWorkspaceId(next.id);
@@ -845,7 +852,7 @@ export default function Index() {
   };
 
   useEffect(() => {
-    const closeMenus = () => { setContextMenu(null); setMoreOpen(false); setHeaderMenuOpen(false); };
+    const closeMenus = () => { setContextMenu(null); setMoreOpen(false); setHeaderMenuOpen(false); setThemeMenuOpen(false); };
     document.addEventListener("click", closeMenus);
     return () => document.removeEventListener("click", closeMenus);
   }, []);
@@ -956,198 +963,215 @@ export default function Index() {
   );
 
   return (
-    <main className="min-h-screen bg-[#f6f7fb] text-[#172033]">
-      <header className="flex h-[76px] items-center justify-between border-b border-[#e9eaf2] bg-white px-5 lg:px-8">
+    <main className="min-h-screen bg-[var(--surface-page)] text-[var(--ink)]">
+      <header className="flex h-[76px] items-center justify-between border-b border-[var(--edge)] bg-white px-5 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#172033] text-white shadow-lg shadow-slate-300/60">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink-solid)] text-white shadow-[0_8px_20px_var(--neutral-shadow)]">
             <Braces size={22} strokeWidth={2.6} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-[17px] font-bold tracking-[-0.03em]">JotJSON</h1>
-              <span className="rounded-md bg-[#eef0ff] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#0f766e]">Beta</span>
+              <span className="rounded-md bg-[var(--violet-soft-bg)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--brand)]">Beta</span>
             </div>
             <p className="text-xs font-medium text-slate-400">Format, annotate, remember.</p>
           </div>
         </div>
         <div className="hidden items-center gap-2 md:flex">
+          <div className="relative">
+            <button onClick={(event) => { event.stopPropagation(); setThemeMenuOpen((current) => !current); }} className={`header-button ${themeMenuOpen ? "bg-slate-100 text-slate-800" : ""}`} aria-label="Choose color theme" title="Choose color theme">{isDark ? <Moon size={17} /> : <Sun size={17} />}</button>
+            {themeMenuOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-44 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
+              <p className="px-2.5 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Color theme</p>
+              {[
+                { value: "light", label: "Light", icon: Sun },
+                { value: "dark", label: "Dark", icon: Moon },
+                { value: "system", label: "System", icon: Laptop },
+              ].map((option) => (
+                <button key={option.value} onClick={() => { setTheme(option.value); setThemeMenuOpen(false); }} className="menu-item grid-cols-[18px_auto_1fr]">
+                  <option.icon size={15} className="text-[var(--brand)]" />
+                  {option.label}
+                  {theme === option.value && <Check size={14} className="justify-self-end text-[var(--brand)]" />}
+                </button>
+              ))}
+            </div>}
+          </div>
           <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "bg-slate-100 text-slate-800" : ""}`}><CircleHelp size={17} /> Help</button>
           <div className="relative">
             <button onClick={(event) => { event.stopPropagation(); setHeaderMenuOpen((current) => !current); }} className={`header-button ${headerMenuOpen ? "bg-slate-100 text-slate-800" : ""}`} aria-label="More options"><MoreHorizontal size={18} /></button>
-            {headerMenuOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-60 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
-              <button onClick={() => { setHelpOpen(true); setHeaderMenuOpen(false); }} className="menu-item"><CircleHelp size={15} className="text-[#0f766e]" /> Keyboard shortcuts</button>
-              <button onClick={async () => { if (await copyText(window.location.origin)) toast.success("App link copied"); setHeaderMenuOpen(false); }} className="menu-item"><Share2 size={15} className="text-[#0f766e]" /> Copy app link</button>
+            {headerMenuOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-60 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
+              <button onClick={() => { setHelpOpen(true); setHeaderMenuOpen(false); }} className="menu-item"><CircleHelp size={15} className="text-[var(--brand)]" /> Keyboard shortcuts</button>
+              <button onClick={async () => { if (await copyText(window.location.origin)) toast.success("App link copied"); setHeaderMenuOpen(false); }} className="menu-item"><Share2 size={15} className="text-[var(--brand)]" /> Copy app link</button>
             </div>}
           </div>
-          <div className="ml-2 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#9b8cff] to-[#6257e8] text-xs font-bold text-white">AV</div>
+          <div className="ml-2 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[var(--violet-light)] to-[var(--violet-dark)] text-xs font-bold text-white">AV</div>
         </div>
       </header>
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <div className="relative hidden lg:flex">
           {leftCollapsed ? (
-            <div className="flex w-11 shrink-0 flex-col items-center gap-3 border-r border-[#e9eaf2] bg-white py-5">
-              <button onClick={() => setLeftCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="Expand sidebar" title="Expand sidebar"><PanelLeftOpen size={18} /></button>
-              <div className="h-px w-6 bg-[#eef0f5]" />
-              <button onClick={() => { setLeftCollapsed(false); createDocument(); }} className="rounded-lg p-2 text-[#0f766e] transition hover:bg-[#e6f7f4]" aria-label="New document" title="New document"><FilePlus2 size={18} /></button>
-              <button onClick={() => { setLeftCollapsed(false); setActiveSection("current"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="Current document" title="Current document"><FileJson2 size={18} /></button>
-              <button onClick={() => { setLeftCollapsed(false); setActiveSection("documents"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="My documents" title="My documents"><FolderOpen size={18} /></button>
+            <div className="flex w-11 shrink-0 flex-col items-center gap-3 border-r border-[var(--edge)] bg-white py-5">
+              <button onClick={() => setLeftCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Expand sidebar" title="Expand sidebar"><PanelLeftOpen size={18} /></button>
+              <div className="h-px w-6 bg-[var(--edge-soft)]" />
+              <button onClick={() => { setLeftCollapsed(false); createDocument(); }} className="rounded-lg p-2 text-[var(--brand)] transition hover:bg-[var(--brand-soft)]" aria-label="New document" title="New document"><FilePlus2 size={18} /></button>
+              <button onClick={() => { setLeftCollapsed(false); setActiveSection("current"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Current document" title="Current document"><FileJson2 size={18} /></button>
+              <button onClick={() => { setLeftCollapsed(false); setActiveSection("documents"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="My documents" title="My documents"><FolderOpen size={18} /></button>
             </div>
           ) : (
-            <aside style={{ width: leftWidth }} className="flex shrink-0 flex-col border-r border-[#e9eaf2] bg-white px-4 py-6">
-              <div className="mb-2 flex items-center justify-end"><button onClick={() => setLeftCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={16} /></button></div>
-              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-3 text-left transition hover:border-[#9ed3c8]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[#e3e6ef] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[#e6f7f4] text-[#0f766e]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[#eef0f5]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[#e3e6ef] px-2.5 py-2 text-xs outline-none focus:border-[#9ed3c8]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[#e6f7f4] text-[#0f766e]" : "bg-slate-50 text-slate-400"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[#eeeaff] text-[#6b4ec4]" : "bg-slate-50 text-slate-400"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[#172033] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
-              <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#5149da]">
+            <aside style={{ width: leftWidth }} className="flex shrink-0 flex-col border-r border-[var(--edge)] bg-white px-4 py-6">
+              <div className="mb-2 flex items-center justify-end"><button onClick={() => setLeftCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={16} /></button></div>
+              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-3 text-left transition hover:border-[var(--brand-border)]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[var(--edge)] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[var(--edge-soft)]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[var(--edge)] px-2.5 py-2 text-xs outline-none focus:border-[var(--brand-border)]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-slate-50 text-slate-400"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[var(--violet-soft)] text-[var(--violet-ink)]" : "bg-slate-50 text-slate-400"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[var(--ink-solid)] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
+              <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_20px_var(--brand-shadow)] transition hover:bg-[var(--violet-dark)]">
                 <FilePlus2 size={17} /> New document
               </button>
               <nav className="mt-7 space-y-1">
                 <button onClick={() => setActiveSection("current")} className={`sidebar-link ${activeSection === "current" ? "sidebar-link-active" : ""}`}><FileJson2 size={17} /> Current document</button>
                 <button onClick={() => setActiveSection("documents")} className={`sidebar-link ${activeSection === "documents" ? "sidebar-link-active" : ""}`}><FolderOpen size={17} /> My documents</button>
               </nav>
-              <div className="mt-9 border-t border-[#eef0f5] pt-5">
+              <div className="mt-9 border-t border-[var(--edge-soft)] pt-5">
                 <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Recent</p>
-                {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "bg-[#f4fbfa] text-[#0f766e]" : ""}`}><span className={`h-2 w-2 rounded-full ${document.name.includes("webhook") ? "bg-[#ffb64d]" : "bg-[#0f766e]"}`} /> {document.name}</button>)}
+                {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "bg-[var(--brand-soft-hover)] text-[var(--brand)]" : ""}`}><span className={`h-2 w-2 rounded-full ${document.name.includes("webhook") ? "bg-[var(--amber-dot)]" : "bg-[var(--brand)]"}`} /> {document.name}</button>)}
               </div>
-              <div className="mt-auto rounded-xl bg-[#f3f2ff] px-4 py-4 text-sm text-[#4d46c9]">
+              <div className="mt-auto rounded-xl bg-[var(--violet-soft-bg)] px-4 py-4 text-sm text-[var(--violet-ink)]">
                 <Sparkles size={18} className="mb-2" />
                 <p className="font-bold">Keep context close.</p>
-                <p className="mt-1 text-xs leading-5 text-[#716bd2]">Notes stay attached to the structure they explain.</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--violet-muted)]">Notes stay attached to the structure they explain.</p>
               </div>
             </aside>
           )}
-          {!leftCollapsed && <div onPointerDown={startDrag("left")} onPointerMove={onDragMove} onPointerUp={endDrag} onPointerCancel={endDrag} className="group absolute right-0 top-0 z-20 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none"><div className="mx-auto h-full w-px bg-transparent transition group-hover:bg-[#9ed3c8] group-active:bg-[#0f766e]" /><GripVertical size={12} className="absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-[#9ed3c8] group-hover:block" /></div>}
+          {!leftCollapsed && <div onPointerDown={startDrag("left")} onPointerMove={onDragMove} onPointerUp={endDrag} onPointerCancel={endDrag} className="group absolute right-0 top-0 z-20 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none"><div className="mx-auto h-full w-px bg-transparent transition group-hover:bg-[var(--brand-border)] group-active:bg-[var(--brand)]" /><GripVertical size={12} className="absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-[var(--brand-border)] group-hover:block" /></div>}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-col gap-4 border-b border-[#e6e8f0] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
+          <div className="flex flex-col gap-4 border-b border-[var(--edge)] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {workspace.name} <span>/</span> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[#0f766e]" /></div>
-              <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[#0f766e]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
+              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {workspace.name} <span>/</span> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[var(--brand)]" /></div>
+              <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[var(--brand)]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={saveDocument} className="tool-button border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]"><Check size={16} /> Save</button>
+              <button onClick={saveDocument} className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]"><Check size={16} /> Save</button>
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
-              <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]" : ""}`}><GitCompare size={16} /> Compare</button>
+              <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`}><GitCompare size={16} /> Compare</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
               <button onClick={() => shareLink(compareOpen)} className="tool-button"><Share2 size={16} /> Share</button>
               <input ref={fileInputRef} type="file" accept=".json,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
               <div className="relative">
-                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[#9ed3c8] bg-[#e6f7f4] text-[#0f766e]" : ""}`} aria-label="More tools"><MoreHorizontal size={16} /> More</button>
-                {moreOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
-                  <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[#0f766e]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
-                  <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[#0f766e]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
-                  <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[#0f766e]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
-                  <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[#0f766e]" /> Download .json</button>
-                  <div className="my-1 border-t border-[#eef0f5]" />
-                  <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[#0f766e]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
-                  <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[#0f766e]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
+                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`} aria-label="More tools"><MoreHorizontal size={16} /> More</button>
+                {moreOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
+                  <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
+                  <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
+                  <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[var(--brand)]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
+                  <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json</button>
+                  <div className="my-1 border-t border-[var(--edge-soft)]" />
+                  <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[var(--brand)]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
+                  <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[var(--brand)]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
                 </div>}
               </div>
             </div>
           </div>
 
           <div className="flex flex-1 flex-col gap-5 p-4 lg:flex-row lg:p-6">
-            <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-250px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
-              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group min-w-0 rounded-xl border border-[#e3e6ef] p-4 text-left transition hover:border-[#9ed3c8] hover:bg-[#f4fbfa]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[#0f766e]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[#0f766e]" /></div><p className="mt-5 truncate text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
-              {compareOpen && changedRows.length > 0 && <div className="absolute bottom-0 left-0 right-0 z-30 max-h-44 overflow-auto border-t border-[#dce6e5] bg-white/95 p-3 shadow-[0_-8px_25px_rgba(23,32,51,0.08)]"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-700">Line changes <span className="ml-1 font-normal text-slate-400">{changedRows.length}</span></p><span className="text-[10px] text-slate-400">Click to jump in both panes</span></div><div className="space-y-1">{changedRows.map((row, index) => <button key={`${row.leftLine}-${row.rightLine}-${index}`} onClick={() => jumpToCompareLine(row.leftLine ?? row.rightLine ?? 1, row.rightLine ?? row.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[#ebeaf2] bg-white p-2 text-left text-[11px] hover:border-[#9ed3c8] sm:grid-cols-[88px_1fr_1fr]"><span className="font-mono font-bold text-[#0f766e]">{row.status === "added" ? `+ L${row.rightLine}` : row.status === "removed" ? `− L${row.leftLine}` : `L${row.leftLine} → L${row.rightLine}`}</span><span className={`truncate ${row.status === "added" ? "text-slate-300" : "text-rose-600"}`}>{row.status === "added" ? "—" : `− ${row.leftText.trim() || '""'}`}</span><span className={`truncate ${row.status === "removed" ? "text-slate-300" : "text-emerald-600"}`}>{row.status === "removed" ? "—" : `+ ${row.rightText.trim() || '""'}`}</span></button>)}</div></div>}
+            <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-250px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
+              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group min-w-0 rounded-xl border border-[var(--edge)] p-4 text-left transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[var(--brand)]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[var(--brand)]" /></div><p className="mt-5 truncate text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
+              {compareOpen && changedRows.length > 0 && <div className="absolute bottom-0 left-0 right-0 z-30 max-h-44 overflow-auto border-t border-[var(--edge)] bg-white/95 p-3 shadow-[0_-8px_25px_rgba(23,32,51,0.08)]"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-700">Line changes <span className="ml-1 font-normal text-slate-400">{changedRows.length}</span></p><span className="text-[10px] text-slate-400">Click to jump in both panes</span></div><div className="space-y-1">{changedRows.map((row, index) => <button key={`${row.leftLine}-${row.rightLine}-${index}`} onClick={() => jumpToCompareLine(row.leftLine ?? row.rightLine ?? 1, row.rightLine ?? row.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[var(--edge-soft)] bg-white p-2 text-left text-[11px] hover:border-[var(--brand-border)] sm:grid-cols-[88px_1fr_1fr]"><span className="font-mono font-bold text-[var(--brand)]">{row.status === "added" ? `+ L${row.rightLine}` : row.status === "removed" ? `− L${row.leftLine}` : `L${row.leftLine} → L${row.rightLine}`}</span><span className={`truncate ${row.status === "added" ? "text-slate-300" : "text-rose-600"}`}>{row.status === "added" ? "—" : `− ${row.leftText.trim() || '""'}`}</span><span className={`truncate ${row.status === "removed" ? "text-slate-300" : "text-emerald-600"}`}>{row.status === "removed" ? "—" : `+ ${row.rightText.trim() || '""'}`}</span></button>)}</div></div>}
               {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white">
-                <div className="flex flex-wrap items-center gap-3 border-b border-[#edf0f4] px-5 py-3">
+                <div className="flex flex-wrap items-center gap-3 border-b border-[var(--edge)] px-5 py-3">
                   <div className="min-w-[200px] flex-1"><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Both sides are editable — changes highlight live. <span className="rounded bg-amber-100 px-1">changed</span> <span className="rounded bg-rose-100 px-1">removed</span> <span className="rounded bg-emerald-100 px-1">added</span></p></div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button onClick={copyReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Copy size={14} /> Copy report</button>
                     <button onClick={exportReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Download size={14} /> Export report</button>
-                    <button onClick={() => shareLink(true)} className="tool-button h-8 shrink-0 whitespace-nowrap border-[#9ed3c8] bg-[#e6f7f4] px-2.5 text-[11px] text-[#0f766e]"><Share2 size={14} /> Share comparison</button>
+                    <button onClick={() => shareLink(true)} className="tool-button h-8 shrink-0 whitespace-nowrap border-[var(--brand-border)] bg-[var(--brand-soft)] px-2.5 text-[11px] text-[var(--brand)]"><Share2 size={14} /> Share comparison</button>
                     <button onClick={() => setCompareOpen(false)} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button>
                   </div>
                 </div>
                 <div className="grid flex-1 gap-4 overflow-auto p-4 pb-48 xl:grid-cols-2">
-                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[#e3e6ef]">
-                    <div className="border-b border-[#edf0f4] px-4 py-2.5 text-xs font-bold text-slate-600">Current JSON — {documentName}</div>
+                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--edge)]">
+                    <div className="border-b border-[var(--edge)] px-4 py-2.5 text-xs font-bold text-slate-600">Current JSON — {documentName}</div>
                     <ComparePane value={json} onChange={updateJson} statuses={diffStatuses.left} editorRef={compareCurrentRef} ariaLabel="Current JSON comparison" />
                   </div>
-                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[#9ed3c8]">
-                    <div className="border-b border-[#d9eeea] bg-[#f4fbfa] px-4 py-2.5 text-xs font-bold text-[#0f766e]">Compare with</div>
+                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--brand-border)]">
+                    <div className="border-b border-[var(--brand-soft-border)] bg-[var(--brand-soft-hover)] px-4 py-2.5 text-xs font-bold text-[var(--brand)]">Compare with</div>
                     <ComparePane value={compareJson} onChange={setCompareJson} statuses={diffStatuses.right} editorRef={compareRef} ariaLabel="Compare JSON" />
                   </div>
-                  <div className="xl:col-span-2 rounded-xl border border-[#e3e6ef] bg-[#fafbfc] p-4">
+                  <div className="xl:col-span-2 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
                     <div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences by path <span className="ml-2 text-xs font-normal text-slate-400">Click a row to jump to it in both panes</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${pathDiffs.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{pathDiffs.length ? `${pathDiffs.filter((d) => d.kind === "changed").length} changed · ${pathDiffs.filter((d) => d.kind === "added").length} added · ${pathDiffs.filter((d) => d.kind === "removed").length} removed` : differences === null ? "Invalid JSON" : "No changes"}</span></div>
-                    {pathDiffs.length > 0 ? <div className="mt-3 space-y-2">{pathDiffs.map((difference) => { const targetRow = changedRows.find((row) => row.leftText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`) || row.rightText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`)); return <button key={difference.path} onClick={() => targetRow && jumpToCompareLine(targetRow.leftLine ?? targetRow.rightLine ?? 1, targetRow.rightLine ?? targetRow.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[#ebeaf2] bg-white p-3 text-left text-xs transition hover:border-[#9ed3c8] sm:grid-cols-[64px_1fr_1fr_1fr]"><span className={`self-start rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase ${difference.kind === "added" ? "bg-emerald-50 text-emerald-700" : difference.kind === "removed" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{difference.kind}</span><span className="break-all font-mono font-semibold text-[#0f766e]">{difference.path}</span><span className="break-all text-rose-600">− {difference.before}</span><span className="break-all text-emerald-600">+ {difference.after}</span></button>; })}</div> : <p className="mt-3 text-xs text-slate-400">{differences === null ? "One side is not valid JSON — fix the syntax (or hit Format) to see path-level differences. Line changes still highlight above." : "The two JSON documents match."}</p>}
+                    {pathDiffs.length > 0 ? <div className="mt-3 space-y-2">{pathDiffs.map((difference) => { const targetRow = changedRows.find((row) => row.leftText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`) || row.rightText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`)); return <button key={difference.path} onClick={() => targetRow && jumpToCompareLine(targetRow.leftLine ?? targetRow.rightLine ?? 1, targetRow.rightLine ?? targetRow.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[var(--edge-soft)] bg-white p-3 text-left text-xs transition hover:border-[var(--brand-border)] sm:grid-cols-[64px_1fr_1fr_1fr]"><span className={`self-start rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase ${difference.kind === "added" ? "bg-emerald-50 text-emerald-700" : difference.kind === "removed" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{difference.kind}</span><span className="break-all font-mono font-semibold text-[var(--brand)]">{difference.path}</span><span className="break-all text-rose-600">− {difference.before}</span><span className="break-all text-emerald-600">+ {difference.after}</span></button>; })}</div> : <p className="mt-3 text-xs text-slate-400">{differences === null ? "One side is not valid JSON — fix the syntax (or hit Format) to see path-level differences. Line changes still highlight above." : "The two JSON documents match."}</p>}
                   </div>
                 </div>
               </div>}
-              <div className="flex items-center justify-between border-b border-[#edf0f4] px-5 py-3">
+              <div className="flex items-center justify-between border-b border-[var(--edge)] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button><button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button><button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button></div>
                 <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
               </div>
-              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#fcfcfe]">
+              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--surface-soft)]">
                 {view === "query" ? <div className="flex min-h-[520px] flex-1 flex-col overflow-hidden">
-                  <div className="border-b border-[#edf0f4] bg-[#fafbfc] px-5 py-4">
+                  <div className="border-b border-[var(--edge)] bg-[var(--surface-soft)] px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
-                        <TerminalSquare size={16} className="absolute left-3.5 top-3 text-[#0f766e]" />
-                        <input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="e.g. endpoints[?auth=true].name" spellCheck={false} className="w-full rounded-xl border border-[#e3e6ef] bg-white py-2.5 pl-10 pr-24 font-mono text-sm shadow-sm outline-none transition focus:border-[#9ed3c8] focus:shadow-[0_0_0_3px_rgba(15,118,110,0.08)]" />
-                        <span className={`absolute right-3 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${queryResults.error ? "bg-rose-50 text-rose-600" : "bg-[#e6f7f4] text-[#0f766e]"}`}>{queryResults.error ? "invalid doc" : `${queryResults.matches.length.toLocaleString()} match${queryResults.matches.length === 1 ? "" : "es"}`}</span>
+                        <TerminalSquare size={16} className="absolute left-3.5 top-3 text-[var(--brand)]" />
+                        <input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="e.g. endpoints[?auth=true].name" spellCheck={false} className="w-full rounded-xl border border-[var(--edge)] bg-white py-2.5 pl-10 pr-24 font-mono text-sm shadow-sm outline-none transition focus:border-[var(--brand-border)] focus:shadow-[0_0_0_3px_rgba(15,118,110,0.08)]" />
+                        <span className={`absolute right-3 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${queryResults.error ? "bg-rose-50 text-rose-600" : "bg-[var(--brand-soft)] text-[var(--brand)]"}`}>{queryResults.error ? "invalid doc" : `${queryResults.matches.length.toLocaleString()} match${queryResults.matches.length === 1 ? "" : "es"}`}</span>
                       </div>
                       {queryResults.matches.length > 0 && <button onClick={async () => { const payload = queryResults.matches.length === 1 ? queryResults.matches[0].value : queryResults.matches.map((m) => m.value); if (await copyText(JSON.stringify(payload, null, 2))) toast.success("Query result copied as JSON"); }} className="tool-button h-10 shrink-0"><Copy size={14} /> Copy result</button>}
                     </div>
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Try:</span>
-                      {["endpoints[*].name", "endpoints[?auth=true].path", "settings.*", "endpoints[0]"].map((example) => <button key={example} onClick={() => setQueryText(example)} className={`rounded-md px-2 py-1 font-mono text-[10px] transition ${queryText === example ? "bg-[#0f766e] text-white" : "bg-white text-slate-500 shadow-sm hover:bg-[#e6f7f4] hover:text-[#0f766e]"}`}>{example}</button>)}
+                      {["endpoints[*].name", "endpoints[?auth=true].path", "settings.*", "endpoints[0]"].map((example) => <button key={example} onClick={() => setQueryText(example)} className={`rounded-md px-2 py-1 font-mono text-[10px] transition ${queryText === example ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"}`}>{example}</button>)}
                       <span className="ml-auto hidden text-[10px] text-slate-400 sm:block">dot paths · [index] · [*] · [?field=value] · &gt; &lt; !=</span>
                     </div>
                   </div>
                   <div className="grid flex-1 overflow-hidden lg:grid-cols-2">
-                    <div className="flex min-h-[240px] flex-col overflow-hidden border-b border-[#edf0f4] lg:border-b-0 lg:border-r">
-                      <div className="flex items-center justify-between border-b border-[#edf0f4] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Document — {documentName}</span><span className="text-[10px] text-slate-400">{lineCount.toLocaleString()} lines</span></div>
-                      <pre className="flex-1 overflow-auto bg-[#fcfcfe] p-4 font-mono text-xs leading-6 text-[#33415c]">{json}</pre>
+                    <div className="flex min-h-[240px] flex-col overflow-hidden border-b border-[var(--edge)] lg:border-b-0 lg:border-r">
+                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Document — {documentName}</span><span className="text-[10px] text-slate-400">{lineCount.toLocaleString()} lines</span></div>
+                      <pre className="flex-1 overflow-auto bg-[var(--surface-soft)] p-4 font-mono text-xs leading-6 text-[var(--ink)]">{json}</pre>
                     </div>
                     <div className="flex min-h-[240px] flex-col overflow-hidden">
-                      <div className="flex items-center justify-between border-b border-[#edf0f4] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Results</span>{queryResults.matches.length > queryLimit && <span className="text-[10px] text-slate-400">showing {queryLimit.toLocaleString()} of {queryResults.matches.length.toLocaleString()}</span>}</div>
-                      <div className="flex-1 space-y-2.5 overflow-auto bg-[#fafbfc] p-4">
+                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Results</span>{queryResults.matches.length > queryLimit && <span className="text-[10px] text-slate-400">showing {queryLimit.toLocaleString()} of {queryResults.matches.length.toLocaleString()}</span>}</div>
+                      <div className="flex-1 space-y-2.5 overflow-auto bg-[var(--surface-soft)] p-4">
                         {queryResults.error && <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">{queryResults.error}</div>}
-                        {!queryResults.error && queryResults.matches.slice(0, queryLimit).map((match) => <div key={match.path} className="rounded-xl border border-[#ebeaf2] bg-white p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="break-all font-mono text-[10px] font-bold text-[#0f766e]">{match.path}</p><button onClick={async () => { if (await copyText(JSON.stringify(match.value, null, 2))) toast.success("Copied"); }} className="shrink-0 rounded p-1 text-slate-300 transition hover:bg-slate-50 hover:text-[#0f766e]" aria-label="Copy this value"><Copy size={12} /></button></div>{typeof match.value === "string" && /^https?:\/\/\S+$/i.test(match.value) ? <a href={match.value} target="_blank" rel="noopener noreferrer" className="mt-1.5 block break-all font-mono text-xs leading-5 text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{match.value}</a> : <pre className="mt-1.5 max-h-64 overflow-auto font-mono text-xs leading-5 text-slate-600">{previewValue(match.value)}</pre>}</div>)}
-                        {!queryResults.error && queryResults.matches.length > queryLimit && <button onClick={() => setQueryLimit((current) => current + 100)} className="w-full rounded-xl border border-dashed border-[#9ed3c8] py-2.5 text-xs font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]">Show 100 more</button>}
+                        {!queryResults.error && queryResults.matches.slice(0, queryLimit).map((match) => <div key={match.path} className="rounded-xl border border-[var(--edge-soft)] bg-white p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="break-all font-mono text-[10px] font-bold text-[var(--brand)]">{match.path}</p><button onClick={async () => { if (await copyText(JSON.stringify(match.value, null, 2))) toast.success("Copied"); }} className="shrink-0 rounded p-1 text-slate-300 transition hover:bg-slate-50 hover:text-[var(--brand)]" aria-label="Copy this value"><Copy size={12} /></button></div>{typeof match.value === "string" && /^https?:\/\/\S+$/i.test(match.value) ? <a href={match.value} target="_blank" rel="noopener noreferrer" className="mt-1.5 block break-all font-mono text-xs leading-5 text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{match.value}</a> : <pre className="mt-1.5 max-h-64 overflow-auto font-mono text-xs leading-5 text-slate-600">{previewValue(match.value)}</pre>}</div>)}
+                        {!queryResults.error && queryResults.matches.length > queryLimit && <button onClick={() => setQueryLimit((current) => current + 100)} className="w-full rounded-xl border border-dashed border-[var(--brand-border)] py-2.5 text-xs font-bold text-[var(--brand)] transition hover:bg-[var(--brand-soft-hover)]">Show 100 more</button>}
                         {!queryResults.error && queryResults.matches.length === 0 && <p className="py-10 text-center text-sm text-slate-400">No matches for this query.</p>}
                       </div>
                     </div>
                   </div>
-                </div> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[#edf0f4] bg-[#fafbfc] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[#0f766e]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[#0f766e] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[#0f766e]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[#0f766e] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[#0f766e]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[#0f766e] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[#0f766e]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} />}
-                {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[#e6e7ef] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
-                {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[#dce6e5] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[#e6f7f4] hover:text-[#0f766e]"><MessageSquarePlus size={15} className="text-[#0f766e]" /> Add comment on line {contextMenu.line}</button></div>}
+                </div> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
+                {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
+                {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
             </section>
 
             <div className="relative hidden lg:flex">
-              {!rightCollapsed && <div onPointerDown={startDrag("right")} onPointerMove={onDragMove} onPointerUp={endDrag} onPointerCancel={endDrag} className="group absolute left-0 top-0 z-20 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none"><div className="mx-auto h-full w-px bg-transparent transition group-hover:bg-[#9ed3c8] group-active:bg-[#0f766e]" /><GripVertical size={12} className="absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-[#9ed3c8] group-hover:block" /></div>}
+              {!rightCollapsed && <div onPointerDown={startDrag("right")} onPointerMove={onDragMove} onPointerUp={endDrag} onPointerCancel={endDrag} className="group absolute left-0 top-0 z-20 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none"><div className="mx-auto h-full w-px bg-transparent transition group-hover:bg-[var(--brand-border)] group-active:bg-[var(--brand)]" /><GripVertical size={12} className="absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-[var(--brand-border)] group-hover:block" /></div>}
               {rightCollapsed ? (
-                <div className="flex w-11 shrink-0 flex-col items-center gap-3 rounded-2xl border border-[#e3e6ef] bg-white py-5 shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-                  <button onClick={() => setRightCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="Expand notes panel" title="Expand notes panel"><PanelRightOpen size={18} /></button>
-                  <div className="h-px w-6 bg-[#eef0f5]" />
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[#e6f7f4] text-[10px] font-bold text-[#0f766e]">{notes.length}</span>
-                  <button onClick={() => { setRightCollapsed(false); openCommentComposer(); }} className="rounded-lg p-2 text-[#0f766e] transition hover:bg-[#e6f7f4]" aria-label="Add reference note" title="Add reference note"><MessageSquarePlus size={18} /></button>
+                <div className="flex w-11 shrink-0 flex-col items-center gap-3 rounded-2xl border border-[var(--edge)] bg-white py-5 shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+                  <button onClick={() => setRightCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Expand notes panel" title="Expand notes panel"><PanelRightOpen size={18} /></button>
+                  <div className="h-px w-6 bg-[var(--edge-soft)]" />
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--brand-soft)] text-[10px] font-bold text-[var(--brand)]">{notes.length}</span>
+                  <button onClick={() => { setRightCollapsed(false); openCommentComposer(); }} className="rounded-lg p-2 text-[var(--brand)] transition hover:bg-[var(--brand-soft)]" aria-label="Add reference note" title="Add reference note"><MessageSquarePlus size={18} /></button>
                 </div>
               ) : (
-                <aside style={{ width: rightWidth }} className="flex h-[calc(100vh-250px)] min-h-[480px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-                  <aside className="flex h-[calc(100vh-250px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[#e3e6ef] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-              <div className="border-b border-[#edf0f4] px-5 pb-4 pt-5">
-                <div className="flex items-center justify-between"><div><p className="text-base font-bold tracking-[-0.025em]">Reference notes</p><p className="mt-1 text-xs text-slate-400">Context for future you.</p></div><div className="flex items-center gap-2"><span className="grid h-7 min-w-7 place-items-center rounded-full bg-[#e6f7f4] px-1 text-xs font-bold text-[#0f766e]">{notes.length}</span><button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[#0f766e]" aria-label="Collapse notes panel" title="Collapse notes panel"><PanelRightClose size={16} /></button></div></div>
-                <div className="relative mt-4"><Search size={15} className="absolute left-3 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full rounded-lg border border-[#e6e8f0] bg-[#fafbfc] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[#8f88ec]" /></div>
+                <aside style={{ width: rightWidth }} className="flex h-[calc(100vh-250px)] min-h-[480px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+                  <aside className="flex h-[calc(100vh-250px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+              <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
+                <div className="flex items-center justify-between"><div><p className="text-base font-bold tracking-[-0.025em]">Reference notes</p><p className="mt-1 text-xs text-slate-400">Context for future you.</p></div><div className="flex items-center gap-2"><span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)]">{notes.length}</span><button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse notes panel" title="Collapse notes panel"><PanelRightClose size={16} /></button></div></div>
+                <div className="relative mt-4"><Search size={15} className="absolute left-3 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--violet-dark)]" /></div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
                 {visibleNotes.map((note) => editingNoteId === note.id ? (
-                  <div key={note.id} className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-4">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><Pencil size={12} /> Editing comment on line {commentLine}</div>
+                  <div key={note.id} className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4">
+                    <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]"><Pencil size={12} /> Editing comment on line {commentLine}</div>
                     <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-400" />
                     <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 text-slate-600 outline-none placeholder:text-slate-400" />
-                    <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[#d9eeea] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
+                    <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
                     <div className="mt-2 flex justify-end gap-2">
                       <button onClick={() => { setEditingNoteId(null); setNoteTitle(""); setNoteText(""); setNoteMention(""); }} className="text-xs font-semibold text-slate-500">Cancel</button>
-                      <button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">Update note</button>
+                      <button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">Update note</button>
                     </div>
                   </div>
-                ) : <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[#ebeaf2] p-4 transition hover:border-[#cfcced] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex"><button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button></div><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>{note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[#0f766e]">Mentioned: @{note.mention}</p>}<div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[#0f766e]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
+                ) : <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[var(--edge-soft)] p-4 transition hover:border-[var(--edge-soft)] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex"><button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button></div><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>{note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[var(--brand)]">Mentioned: @{note.mention}</p>}<div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[var(--brand)]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
                 {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
-                {showComposer && !editingNoteId ? <div className="rounded-xl border border-[#9ed3c8] bg-[#f4fbfa] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f766e]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[#d9eeea] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[#0f766e] px-2.5 py-1.5 text-xs font-bold text-white">{editingNoteId ? "Update note" : "Save note"}</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9ed3c8] py-3 text-sm font-bold text-[#0f766e] transition hover:bg-[#f4fbfa]"><MessageSquarePlus size={16} /> Add reference note</button>}
+                {showComposer && !editingNoteId ? <div className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">{editingNoteId ? "Update note" : "Save note"}</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--brand-border)] py-3 text-sm font-bold text-[var(--brand)] transition hover:bg-[var(--brand-soft-hover)]"><MessageSquarePlus size={16} /> Add reference note</button>}
               </div>
             </aside>
                 </aside>
@@ -1159,7 +1183,7 @@ export default function Index() {
 
       {helpOpen && (
         <div onClick={() => setHelpOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[#e3e6ef] bg-white p-6 shadow-2xl">
+          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Keyboard shortcuts</p><button onClick={() => setHelpOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
             <div className="mt-4 space-y-2 text-sm">
               {[
@@ -1170,9 +1194,9 @@ export default function Index() {
                 ["Undo / redo", "⌘ Z / Ctrl Z"],
                 ["Add comment on a line", "right-click the line"],
               ].map(([label, keys]) => (
-                <div key={label} className="flex items-center justify-between border-b border-[#f1f3f9] pb-2 last:border-0">
+                <div key={label} className="flex items-center justify-between border-b border-[var(--edge-soft)] pb-2 last:border-0">
                   <span className="text-slate-600">{label}</span>
-                  <span className="rounded-md bg-[#f4fbfa] px-2 py-1 font-mono text-xs font-semibold text-[#0f766e]">{keys}</span>
+                  <span className="rounded-md bg-[var(--brand-soft-hover)] px-2 py-1 font-mono text-xs font-semibold text-[var(--brand)]">{keys}</span>
                 </div>
               ))}
             </div>
@@ -1182,7 +1206,7 @@ export default function Index() {
 
       {sortOpen && (
         <div onClick={() => setSortOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[#e3e6ef] bg-white p-6 shadow-2xl">
+          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Sort JSON</p><button onClick={() => setSortOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
             {sortCandidates.length === 0 && !(status === "valid" && (() => { try { const v = JSON.parse(json); return v !== null && typeof v === "object" && !Array.isArray(v); } catch { return false; } })()) ? (
               <p className="mt-4 text-sm text-slate-500">This document has no array to sort, and isn't a plain object either. Fix the JSON syntax or open a different document.</p>
@@ -1190,14 +1214,14 @@ export default function Index() {
               <>
                 <p className="mt-1 text-xs text-slate-400">Sort an array (by field, or its values directly) or sort an object's keys alphabetically.</p>
                 <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-slate-400">Target</label>
-                <select value={sortTargetKey ?? sortCandidates[0]?.key ?? "__root_object__"} onChange={(event) => { setSortTargetKey(event.target.value); setSortField(""); }} className="mt-1 w-full rounded-lg border border-[#e3e6ef] bg-white px-3 py-2 text-sm outline-none focus:border-[#9ed3c8]">
+                <select value={sortTargetKey ?? sortCandidates[0]?.key ?? "__root_object__"} onChange={(event) => { setSortTargetKey(event.target.value); setSortField(""); }} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
                   {sortCandidates.map((c) => <option key={c.key} value={c.key}>{c.key === "root" ? "Root array" : `"${c.key}" array`}</option>)}
                   {(() => { try { const v = JSON.parse(json); return v !== null && typeof v === "object" && !Array.isArray(v); } catch { return false; } })() && <option value="__root_object__">Root object — sort keys A→Z</option>}
                 </select>
                 {sortTargetKey !== "__root_object__" && (sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.length ?? 0) > 0 && (
                   <>
                     <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-slate-400">Sort by field</label>
-                    <select value={sortField} onChange={(event) => setSortField(event.target.value)} className="mt-1 w-full rounded-lg border border-[#e3e6ef] bg-white px-3 py-2 text-sm outline-none focus:border-[#9ed3c8]">
+                    <select value={sortField} onChange={(event) => setSortField(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
                       <option value="">(sort values directly)</option>
                       {sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.map((field) => <option key={field} value={field}>{field}</option>)}
                     </select>
@@ -1209,7 +1233,7 @@ export default function Index() {
                     <button onClick={() => applySort("desc")} className="tool-button flex-1 justify-center"><ArrowDown size={15} /> Descending</button>
                   </div>
                 ) : (
-                  <button onClick={() => applySort("asc")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0f766e] py-2.5 text-sm font-bold text-white"><ArrowUpDown size={15} /> Sort keys A→Z</button>
+                  <button onClick={() => applySort("asc")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white"><ArrowUpDown size={15} /> Sort keys A→Z</button>
                 )}
               </>
             )}
@@ -1219,11 +1243,11 @@ export default function Index() {
 
       {schemaOpen && (
         <div onClick={() => setSchemaOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-[#e3e6ef] bg-white p-6 shadow-2xl">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Validate against JSON Schema</p><button onClick={() => setSchemaOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Paste a JSON Schema (draft-07 or newer) — validation runs entirely in your browser, nothing is uploaded.</p>
-            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-40 w-full resize-none rounded-lg border border-[#e3e6ef] bg-[#fafbfc] p-3 font-mono text-xs outline-none focus:border-[#9ed3c8]" />
-            <button onClick={runSchemaValidation} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-[#0f766e] py-2.5 text-sm font-bold text-white"><ShieldCheck size={16} /> Validate current document</button>
+            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-40 w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3 font-mono text-xs outline-none focus:border-[var(--brand-border)]" />
+            <button onClick={runSchemaValidation} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white"><ShieldCheck size={16} /> Validate current document</button>
             {schemaError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{schemaError}</div>}
             {schemaIssues && (
               <div className="mt-3 min-h-0 flex-1 overflow-auto">
