@@ -27,7 +27,7 @@
     --ring: 171 77% 34%;
     --radius: 0.75rem;
 
-    /* JotJSON app tokens — light. Mirrors the hex values the UI was built
+    /* JSONote app tokens — light. Mirrors the hex values the UI was built
        with, so light mode is pixel-identical to before theming existed. */
     --surface-page: #f6f7fb;
     --surface: #ffffff;
@@ -85,7 +85,7 @@
     --input: 222 20% 20%;
     --ring: 168 60% 42%;
 
-    /* JotJSON app tokens — dark */
+    /* JSONote app tokens — dark */
     --surface-page: #0d1117;
     --surface: #161b22;
     --surface-soft: #1c2129;

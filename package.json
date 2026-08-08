@@ -1,5 +1,5 @@
 {
-  "name": "jotjson",
+  "name": "jsonote",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,6 +18,12 @@
     "codemirror": "^6.0.2",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "fast-xml-parser": "^5.10.1",
+    "fflate": "^0.8.3",
+    "idb": "^8.0.3",
+    "js-yaml": "^5.2.2",
+    "quicktype-core": "^23.3.25",
+    "smol-toml": "^1.7.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -56,6 +62,7 @@
     "@tanstack/react-query": "^5.84.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.2.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
@@ -68,6 +75,7 @@
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "fake-indexeddb": "^6.2.5",
     "framer-motion": "^12.23.12",
     "globals": "^16.3.0",
     "input-otp": "^1.4.2",

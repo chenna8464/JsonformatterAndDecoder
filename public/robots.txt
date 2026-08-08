@@ -1,14 +1,7 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# JSONote — https://jsonnote.com
+# The app is a single public page; all crawlers welcome.
 
 User-agent: *
 Allow: /
+
+Sitemap: https://jsonnote.com/sitemap.xml

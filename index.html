@@ -3,11 +3,100 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JotJSON — Format, annotate, remember</title>
+
+    <!-- ============================================================
+         SEO — the ONE place the production domain appears. If you move
+         off jsonnote.com later, change the URLs in this <head> block and
+         in public/sitemap.xml. The app itself is host-agnostic (share
+         links use the live origin), so it keeps working on any domain.
+         ============================================================ -->
+    <title>JSONote — Free JSON Editor, Formatter, Viewer &amp; Compare Online</title>
+    <meta
+      name="description"
+      content="JSONote is a free online JSON editor that remembers. Format, validate & repair JSON, view it as a tree, table or graph, compare two JSONs, query with JSONPath, convert to YAML/XML/TOML, generate TypeScript/Python/Go models, add comments, and share a full session by link — all in your browser, nothing uploaded."
+    />
+    <meta
+      name="keywords"
+      content="json editor, json formatter, json viewer online, json beautifier, json validator, compare json, json diff, json to yaml, json to csv, json to typescript, jsonpath, json tree viewer, json graph, format json, json parser"
+    />
+    <meta name="author" content="JSONote" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="canonical" href="https://jsonnote.com/" />
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Slack, WhatsApp…) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="JSONote" />
+    <meta property="og:title" content="JSONote — Free JSON Editor, Formatter, Viewer &amp; Compare" />
+    <meta
+      property="og:description"
+      content="The JSON editor that remembers. Format, compare, query, convert, graph, annotate and share JSON — free, private, and entirely in your browser."
+    />
+    <meta property="og:url" content="https://jsonnote.com/" />
+    <meta property="og:image" content="https://jsonnote.com/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="JSONote — Free JSON Editor, Formatter, Viewer &amp; Compare" />
+    <meta
+      name="twitter:description"
+      content="The JSON editor that remembers. Format, compare, query, convert, graph, annotate and share JSON — free, private, in-browser."
+    />
+    <meta name="twitter:image" content="https://jsonnote.com/og-image.svg" />
+
+    <!-- Structured data: helps Google show a rich result for a free web app -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "JSONote",
+        "url": "https://jsonnote.com/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires a modern web browser with JavaScript.",
+        "description": "Free online JSON editor to format, validate, repair, view (tree/table/graph), compare, query, convert (YAML/XML/TOML/CSV), generate code, annotate and share JSON — entirely in the browser.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "JSON formatter, beautifier and minifier",
+          "Auto-repair of broken JSON",
+          "Tree, table and graph views",
+          "Compare two JSON documents with diff highlighting",
+          "JSONPath-style query with filters",
+          "JSON to YAML, XML, TOML and CSV conversion",
+          "Generate TypeScript, Python, Go, Java and more from JSON",
+          "JSON Schema validation",
+          "Comments, review threads and version history",
+          "Private share links — data stays in the URL, never uploaded"
+        ]
+      }
+    </script>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Crawlable fallback: replaced by the app once JavaScript loads, but
+           gives search engines and no-JS crawlers real, indexable content. -->
+      <noscript>
+        <h1>JSONote — Free online JSON editor, formatter, viewer &amp; compare tool</h1>
+        <p>
+          JSONote is a free, private, in-browser JSON editor. Format and beautify JSON, validate and
+          auto-repair broken JSON, explore it as an interactive tree, table or node graph, compare two
+          JSON documents with highlighted differences, query with JSONPath-style filters, convert JSON
+          to YAML, XML, TOML or CSV, generate TypeScript, Python, Go and other models from a sample,
+          validate against a JSON Schema, add comments and review threads, keep on-device version
+          history, and share an entire session by link — with nothing ever uploaded to a server.
+        </p>
+        <p>JavaScript is required to run the editor.</p>
+      </noscript>
+    </div>
 
     <script type="module" src="/client/App.tsx"></script>
   </body>

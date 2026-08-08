@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117" />
+      <stop offset="1" stop-color="#111a2e" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+
+  <!-- faint braces watermark -->
+  <g fill="none" stroke="#1c3a45" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
+    <path d="M980 150c-40 0-48 26-48 66s-32 66-64 66c32 0 64 26 64 66s8 66 48 66" />
+    <path d="M1076 150c40 0 48 26 48 66s32 66 64 66c-32 0-64 26-64 66s-8 66-48 66" />
+  </g>
+
+  <!-- logo mark -->
+  <rect x="90" y="150" width="96" height="96" rx="22" fill="#172033" />
+  <g fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" transform="translate(90 150) scale(1.5)">
+    <path d="M26 16c-5 0-6 3-6 8s-4 8-8 8c4 0 8 3 8 8s1 8 6 8" />
+    <path d="M38 16c5 0 6 3 6 8s4 8 8 8c-4 0-8 3-8 8s-1 8-6 8" />
+  </g>
+
+  <text x="210" y="220" font-size="52" font-weight="800" fill="#ffffff">JSONote</text>
+  <text x="212" y="256" font-size="22" font-weight="600" fill="#2dd4bf" letter-spacing="1">jsonnote.com</text>
+
+  <text x="90" y="360" font-size="66" font-weight="800" fill="#ffffff">The JSON editor</text>
+  <text x="90" y="436" font-size="66" font-weight="800" fill="#ffffff">that <tspan fill="#2dd4bf">remembers.</tspan></text>
+
+  <text x="90" y="500" font-size="27" fill="#9aa3b2">Format · Compare · Query · Convert · Graph · Annotate · Share</text>
+
+  <!-- free + private chips -->
+  <g font-size="22" font-weight="700">
+    <rect x="90" y="536" width="168" height="48" rx="24" fill="#103733" />
+    <text x="174" y="567" fill="#2dd4bf" text-anchor="middle">100% free</text>
+    <rect x="274" y="536" width="240" height="48" rx="24" fill="#103733" />
+    <text x="394" y="567" fill="#2dd4bf" text-anchor="middle">Private · in-browser</text>
+  </g>
+</svg>

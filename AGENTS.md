@@ -1,6 +1,6 @@
-# JotJSON
+# JSONote
 
-JotJSON — a JSON formatter and annotation app. A full-stack React application with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
+JSONote — a JSON formatter and annotation app. A full-stack React application with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
 
 While the app comes with an express server, only create endpoint when strictly neccesary, for example to encapsulate logic that must leave in the server, such as private keys handling, or certain DB operations, db...
 

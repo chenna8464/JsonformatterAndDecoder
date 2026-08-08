@@ -24,6 +24,14 @@ import {
   GripVertical,
   Table as TableIcon,
   ShieldCheck,
+  FileCode2,
+  Loader2,
+  History as HistoryIcon,
+  RotateCcw,
+  Trash2,
+  CircleCheck,
+  CornerDownRight,
+  Reply as ReplyIcon,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -79,19 +87,25 @@ const webhookJson = `{
   }
 }`;
 
-type Note = { id: number; title: string; text: string; path: string; line: number; mention: string; color: string };
+type Reply = { id: number; text: string; mention: string; at: number };
+type Note = { id: number; title: string; text: string; path: string; line: number; mention: string; color: string; resolved?: boolean; replies?: Reply[] };
 type DocumentRecord = { name: string; content: string; updated: string };
 type Workspace = { id: number; name: string; type: "Personal" | "Team"; color: string };
 
 import { repairJson } from "@/lib/jsonRepair";
 import { buildComparisonReport, diffLines, lineStatusMaps, valueDiffs, type LineStatus } from "@/lib/diff";
-import { buildShareLink, copyText, downloadFile, readShareLink } from "@/lib/share";
+import { copyText, downloadFile } from "@/lib/share";
+import { buildSnapshotLink, parseSnapshotFile, readSnapshotFromHash, serializeSnapshotFile, type Snapshot } from "@/lib/snapshot";
 import { csvToJson, jsonToCsv, queryJson, setAtPath } from "@/lib/convert";
+import { CODEGEN_LANGUAGES, generateCode } from "@/lib/codegen";
+import { CONVERT_FORMATS, formatToJson, jsonToFormat, type ConvertFormat } from "@/lib/convertFormats";
+import { clearHistory, listVersions, saveVersion, type Version } from "@/lib/history";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { validateAgainstSchema, type SchemaIssue } from "@/lib/schema";
 import { arrayObjectFields, sortJsonValue, type SortDirection } from "@/lib/sort";
 import JsonCodeEditor, { type JsonCodeEditorHandle } from "@/components/JsonCodeEditor";
+import JsonGraph from "@/components/JsonGraph";
 
 type JsonTreeProps = {
   label: string;
@@ -486,11 +500,16 @@ export default function Index() {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [showComposer, setShowComposer] = useState(false);
   const [search, setSearch] = useState("");
+  const [noteFilter, setNoteFilter] = useState<"all" | "open" | "resolved">("all");
+  const [replyingNoteId, setReplyingNoteId] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyMention, setReplyMention] = useState("");
   const [copied, setCopied] = useState(false);
   const [formatMessage, setFormatMessage] = useState("");
   const [commentLine, setCommentLine] = useState(1);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: number } | null>(null);
-  const [view, setView] = useState<"editor" | "tree" | "query" | "table">("editor");
+  const [view, setView] = useState<"editor" | "tree" | "query" | "table" | "graph">("editor");
+  const [sharedBanner, setSharedBanner] = useState<{ hasCompare: boolean; noteCount: number } | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [queryText, setQueryText] = useState("endpoints[*].name");
   const [queryLimit, setQueryLimit] = useState(50);
@@ -504,6 +523,20 @@ export default function Index() {
   const [schemaText, setSchemaText] = useState('{\n  "type": "object",\n  "required": [],\n  "properties": {}\n}');
   const [schemaIssues, setSchemaIssues] = useState<SchemaIssue[] | null>(null);
   const [schemaError, setSchemaError] = useState("");
+  const [codegenOpen, setCodegenOpen] = useState(false);
+  const [codegenLangIndex, setCodegenLangIndex] = useState(0);
+  const [codegenRootName, setCodegenRootName] = useState("Root");
+  const [codegenOutput, setCodegenOutput] = useState("");
+  const [codegenError, setCodegenError] = useState("");
+  const [codegenLoading, setCodegenLoading] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertFormatId, setConvertFormatId] = useState<ConvertFormat>("yaml");
+  const [convertDirection, setConvertDirection] = useState<"to" | "from">("to");
+  const [convertInput, setConvertInput] = useState("");
+  const [convertOutput, setConvertOutput] = useState("");
+  const [convertError, setConvertError] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyVersions, setHistoryVersions] = useState<Version[]>([]);
   const [treeDepth, setTreeDepth] = useState(2);
   const [leftWidth, setLeftWidth] = useState(232);
   const [rightWidth, setRightWidth] = useState(320);
@@ -729,6 +762,130 @@ export default function Index() {
     }
   };
 
+  const runCodegen = async () => {
+    setCodegenLoading(true);
+    setCodegenError("");
+    const language = CODEGEN_LANGUAGES[codegenLangIndex] ?? CODEGEN_LANGUAGES[0];
+    const result = await generateCode(json, language, codegenRootName);
+    setCodegenLoading(false);
+    if (result.error) {
+      setCodegenError(result.error);
+      setCodegenOutput("");
+    } else {
+      setCodegenOutput(result.code);
+    }
+  };
+
+  const copyCode = async () => {
+    if (await copyText(codegenOutput)) toast.success("Code copied to clipboard");
+    else toast.error("Could not copy — check browser clipboard permissions");
+  };
+
+  const downloadCode = () => {
+    const language = CODEGEN_LANGUAGES[codegenLangIndex] ?? CODEGEN_LANGUAGES[0];
+    const base = documentName.replace(/\.json$/i, "") || "model";
+    downloadFile(`${base}.${language.ext}`, codegenOutput, "text/plain");
+    toast.success(`Downloaded ${base}.${language.ext}`);
+  };
+
+  const runConvert = () => {
+    setConvertError("");
+    if (convertDirection === "to") {
+      const result = jsonToFormat(json, convertFormatId);
+      if (result.ok) setConvertOutput(result.value);
+      else { setConvertOutput(""); setConvertError(result.error); }
+    } else {
+      const result = formatToJson(convertInput, convertFormatId);
+      if (result.ok) setConvertOutput(result.value);
+      else { setConvertOutput(""); setConvertError(result.error); }
+    }
+  };
+
+  const convertFormatInfo = () => CONVERT_FORMATS.find((f) => f.id === convertFormatId) ?? CONVERT_FORMATS[0];
+
+  const copyConvert = async () => {
+    if (await copyText(convertOutput)) toast.success("Copied to clipboard");
+    else toast.error("Could not copy — check browser clipboard permissions");
+  };
+
+  const downloadConvert = () => {
+    const base = documentName.replace(/\.json$/i, "") || "document";
+    const ext = convertDirection === "to" ? convertFormatInfo().ext : "json";
+    downloadFile(`${base}.${ext}`, convertOutput, "text/plain");
+    toast.success(`Downloaded ${base}.${ext}`);
+  };
+
+  const loadConvertIntoEditor = () => {
+    // Only meaningful when converting a format back INTO JSON.
+    updateJson(convertOutput);
+    setConvertOpen(false);
+    setActiveSection("current");
+    setView("editor");
+    toast.success("Loaded converted JSON into the editor");
+  };
+
+  // Auto-save a version 2.5s after editing stops, so history captures how the
+  // document evolves without a version per keystroke. Dedupe/prune live in the
+  // storage layer. Runs entirely on-device (IndexedDB).
+  useEffect(() => {
+    const key = documentName.trim() || "untitled.json";
+    const timer = window.setTimeout(() => {
+      saveVersion(key, key, json).catch(() => {
+        /* IndexedDB unavailable (private mode etc.) — history is best-effort */
+      });
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [json, documentName]);
+
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    // Persist the current state immediately so "now" is always in the timeline.
+    const key = documentName.trim() || "untitled.json";
+    await saveVersion(key, key, json).catch(() => undefined);
+    const versions = await listVersions(key).catch(() => [] as Version[]);
+    setHistoryVersions(versions);
+  };
+
+  const restoreVersion = (version: Version) => {
+    updateJson(version.content);
+    setActiveSection("current");
+    setView("editor");
+    setHistoryOpen(false);
+    toast.success("Restored version", { description: `From ${new Date(version.savedAt).toLocaleString()}` });
+  };
+
+  const compareVersion = (version: Version) => {
+    setCompareJson(version.content);
+    setCompareOpen(true);
+    setView("editor");
+    setHistoryOpen(false);
+    toast.success("Comparing against this version", { description: "Differences are highlighted in the compare view." });
+  };
+
+  const clearDocHistory = async () => {
+    const key = documentName.trim() || "untitled.json";
+    await clearHistory(key).catch(() => undefined);
+    setHistoryVersions([]);
+    toast.success("History cleared for this document");
+  };
+
+  const versionDiffCount = (version: Version): number | null => {
+    try {
+      return valueDiffs(JSON.parse(version.content), JSON.parse(json)).length;
+    } catch {
+      return null;
+    }
+  };
+
+  const relativeTime = (timestamp: number): string => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 5) return "just now";
+    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
   const queryResults = useMemo(() => {
     if (view !== "query") return { matches: [], error: "" };
     try {
@@ -754,6 +911,13 @@ export default function Index() {
     reader.onload = () => {
       const text = String(reader.result ?? "");
       try {
+        // A .jsonote snapshot (or any JSON tagged with our marker) restores the
+        // full shared session — document, comparison, notes — not just a doc.
+        const snapshot = parseSnapshotFile(text);
+        if (snapshot) {
+          restoreSnapshot(snapshot, "file");
+          return;
+        }
         if (/\.csv$/i.test(file.name)) {
           setJson(JSON.stringify(csvToJson(text), null, 2));
           setDocumentName(file.name.replace(/\.csv$/i, ".json"));
@@ -879,15 +1043,66 @@ export default function Index() {
     setShowComposer(false);
   };
 
+  const toggleResolve = (note: Note) => {
+    setNotes((current) => current.map((item) => (item.id === note.id ? { ...item, resolved: !item.resolved } : item)));
+    toast.success(note.resolved ? "Reopened comment" : "Marked resolved");
+  };
+
+  const addReply = (noteId: number) => {
+    if (!replyText.trim()) return;
+    const reply: Reply = { id: Date.now(), text: replyText.trim(), mention: replyMention.trim(), at: Date.now() };
+    setNotes((current) => current.map((item) => (item.id === noteId ? { ...item, replies: [...(item.replies ?? []), reply] } : item)));
+    setReplyText("");
+    setReplyMention("");
+    setReplyingNoteId(null);
+  };
+
+  // Export the whole annotation set as a shareable markdown review.
+  const exportReview = () => {
+    const openCount = notes.filter((n) => !n.resolved).length;
+    const lines: string[] = [
+      `# Review — ${documentName}`,
+      "",
+      `${notes.length} comment${notes.length === 1 ? "" : "s"} · ${openCount} open · ${notes.length - openCount} resolved`,
+      "",
+    ];
+    for (const note of notes) {
+      lines.push(`## ${note.resolved ? "✓ " : ""}${note.title}  \`${note.path}\` (line ${note.line})`);
+      if (note.mention) lines.push(`_@${note.mention}_`);
+      lines.push("", note.text, "");
+      for (const reply of note.replies ?? []) {
+        lines.push(`> ${reply.mention ? `**@${reply.mention}:** ` : ""}${reply.text}`);
+      }
+      if (note.replies?.length) lines.push("");
+    }
+    downloadFile(documentName.replace(/\.json$/i, "") + "-review.md", lines.join("\n"), "text/markdown");
+    toast.success("Review exported", { description: "Markdown with every comment, mention, and reply." });
+  };
+
+  // Assemble the full shareable session: the document, an optional comparison,
+  // the reference notes, and the active view — so a recipient sees exactly what
+  // the sharer sees, including the live diff.
+  const buildSnapshot = (includeCompare: boolean): Snapshot => ({
+    v: 1,
+    name: documentName,
+    json,
+    compare: includeCompare ? compareJson : undefined,
+    notes: notes.length ? notes : undefined,
+    view,
+    compareOpen: includeCompare,
+  });
+
   const shareLink = async (includeCompare: boolean) => {
-    const link = buildShareLink({ name: documentName, json, compare: includeCompare ? compareJson : undefined });
+    const snapshot = buildSnapshot(includeCompare);
+    const link = buildSnapshotLink(snapshot);
     const label = includeCompare ? "Comparison link" : "Share link";
-    // Every browser caps URL length (Firefox/Safari ~65-80k chars) — a link
-    // beyond that would silently fail to open for the recipient, so we warn
-    // instead of handing out a link that won't carry the real document.
+    // Even gzip-compressed, a very large session can exceed the browser URL
+    // cap (~65-80k). Rather than hand out a link that silently won't open,
+    // fall back to a snapshot file that carries the same session losslessly.
     if (link.length > 60_000) {
-      toast.error("This document is too large for a share link", {
-        description: "Use Download or Copy JSON from the More menu instead — the recipient's browser can't open a link this long.",
+      shareAsFile(includeCompare);
+      toast.info("Document too large for a link — shared as a snapshot file instead", {
+        description: "Send the downloaded .jsonote file. The recipient imports it to see everything, including the differences.",
       });
       return;
     }
@@ -902,8 +1117,46 @@ export default function Index() {
       }
     }
     const ok = await copyText(link);
-    if (ok) toast.success(`${label} copied to clipboard`, { description: "The document travels inside the link — nothing is uploaded." });
+    if (ok) toast.success(`${label} copied to clipboard`, { description: "The whole session travels inside the link — nothing is uploaded to a server." });
     else toast.error("Could not copy the link — check browser clipboard permissions");
+  };
+
+  // Export the session as a portable snapshot file. Importing it anywhere
+  // restores the document, the comparison, and the notes — and lands the
+  // recipient in the diff immediately.
+  const shareAsFile = (includeCompare: boolean) => {
+    const base = documentName.replace(/\.json$/i, "");
+    downloadFile(`${base}.jsonote`, serializeSnapshotFile(buildSnapshot(includeCompare)), "application/json");
+    toast.success("Snapshot file downloaded", {
+      description: "Share the .jsonote file — the recipient imports it to restore this exact session.",
+    });
+    setMoreOpen(false);
+  };
+
+  // Restore a full session from a snapshot (link or file): document, comparison,
+  // notes, active view — then show a banner and land the recipient in the diff.
+  const restoreSnapshot = (snapshot: Snapshot, source: "link" | "file") => {
+    setDocumentName(snapshot.name);
+    setJson(snapshot.json);
+    setActiveDocumentKey(null);
+    setActiveSection("current");
+    try {
+      JSON.parse(snapshot.json);
+      setStatus("valid");
+    } catch {
+      setStatus("invalid");
+    }
+    if (snapshot.notes && snapshot.notes.length) setNotes(snapshot.notes);
+    const hasCompare = typeof snapshot.compare === "string";
+    if (hasCompare) {
+      setCompareJson(snapshot.compare as string);
+      setCompareOpen(Boolean(snapshot.compareOpen));
+      setView("editor");
+    } else if (snapshot.view) {
+      setView(snapshot.view);
+    }
+    setSharedBanner({ hasCompare, noteCount: snapshot.notes?.length ?? 0 });
+    toast.success(source === "file" ? "Imported shared session" : "Loaded shared session");
   };
 
   const comparisonReport = () =>
@@ -927,19 +1180,19 @@ export default function Index() {
     else toast.error("Could not copy — check browser clipboard permissions");
   };
 
-  // Load a document shared via link (the JSON travels in the URL hash only).
+  // Load a full session shared via link (the whole session travels compressed
+  // in the URL hash — nothing is fetched from a server). Runs on first load and
+  // also when a share link is pasted into an already-open tab (hashchange).
   useEffect(() => {
-    const payload = readShareLink(window.location.hash);
-    if (!payload) return;
-    setDocumentName(payload.name);
-    setJson(payload.json);
-    setActiveDocumentKey(null);
-    if (payload.compare) {
-      setCompareJson(payload.compare);
-      setCompareOpen(true);
-    }
-    setFormatMessage(payload.compare ? "Loaded shared comparison" : "Loaded shared document");
-    window.history.replaceState(null, "", window.location.pathname);
+    const loadFromHash = () => {
+      const snapshot = readSnapshotFromHash(window.location.hash);
+      if (!snapshot) return;
+      restoreSnapshot(snapshot, "link");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    };
+    loadFromHash();
+    window.addEventListener("hashchange", loadFromHash);
+    return () => window.removeEventListener("hashchange", loadFromHash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -958,9 +1211,10 @@ export default function Index() {
     jump(compareRef.current, compareJson, rightLine);
   };
 
-  const visibleNotes = notes.filter((note) =>
-    `${note.title} ${note.text} ${note.path}`.toLowerCase().includes(search.toLowerCase()),
-  );
+  const visibleNotes = notes
+    .filter((note) => (noteFilter === "all" ? true : noteFilter === "resolved" ? note.resolved : !note.resolved))
+    .filter((note) => `${note.title} ${note.text} ${note.path}`.toLowerCase().includes(search.toLowerCase()));
+  const openNoteCount = notes.filter((note) => !note.resolved).length;
 
   return (
     <main className="min-h-screen bg-[var(--surface-page)] text-[var(--ink)]">
@@ -971,10 +1225,10 @@ export default function Index() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-[17px] font-bold tracking-[-0.03em]">JotJSON</h1>
+              <h1 className="text-[17px] font-bold tracking-[-0.03em]">JSONote</h1>
               <span className="rounded-md bg-[var(--violet-soft-bg)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--brand)]">Beta</span>
             </div>
-            <p className="text-xs font-medium text-slate-400">Format, annotate, remember.</p>
+            <p className="text-xs font-medium text-slate-400">The JSON editor that remembers.</p>
           </div>
         </div>
         <div className="hidden items-center gap-2 md:flex">
@@ -1052,9 +1306,10 @@ export default function Index() {
               <button onClick={saveDocument} className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]"><Check size={16} /> Save</button>
               <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
               <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`}><GitCompare size={16} /> Compare</button>
+              <button onClick={openHistory} className="tool-button"><HistoryIcon size={16} /> History</button>
               <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
               <button onClick={() => shareLink(compareOpen)} className="tool-button"><Share2 size={16} /> Share</button>
-              <input ref={fileInputRef} type="file" accept=".json,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
+              <input ref={fileInputRef} type="file" accept=".json,.jsonote,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
               <div className="relative">
                 <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`} aria-label="More tools"><MoreHorizontal size={16} /> More</button>
                 {moreOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
@@ -1062,13 +1317,39 @@ export default function Index() {
                   <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
                   <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[var(--brand)]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
                   <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json</button>
+                  <button onClick={() => shareAsFile(compareOpen)} className="menu-item"><Share2 size={15} className="text-[var(--brand)]" /> Share as file<span className="menu-hint">.jsonote session</span></button>
                   <div className="my-1 border-t border-[var(--edge-soft)]" />
                   <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[var(--brand)]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
                   <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[var(--brand)]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
+                  <button onClick={() => { setCodegenOpen(true); setMoreOpen(false); if (!codegenOutput) runCodegen(); }} className="menu-item"><FileCode2 size={15} className="text-[var(--brand)]" /> Generate code<span className="menu-hint">TS, Python, Go…</span></button>
+                  <button onClick={() => { setConvertOpen(true); setMoreOpen(false); setConvertDirection("to"); setTimeout(runConvert, 0); }} className="menu-item"><FileJson2 size={15} className="text-[var(--brand)]" /> Convert format<span className="menu-hint">YAML · XML · TOML</span></button>
                 </div>}
               </div>
             </div>
           </div>
+
+          {sharedBanner && (
+            <div className="mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft)] px-4 py-3 lg:mx-6">
+              <Share2 size={16} className="text-[var(--brand)]" />
+              <p className="min-w-0 flex-1 text-sm font-semibold text-[var(--brand)]">
+                Shared with you
+                <span className="ml-2 font-normal text-slate-500">
+                  {sharedBanner.hasCompare
+                    ? differences === null
+                      ? "This session includes a comparison — open Compare to see the differences."
+                      : differences.length
+                        ? `${differences.length} value${differences.length === 1 ? "" : "s"} differ between the two documents. Open Compare to review.`
+                        : "The two documents match."
+                    : "Loaded the shared document."}
+                  {sharedBanner.noteCount > 0 && ` ${sharedBanner.noteCount} reference note${sharedBanner.noteCount === 1 ? "" : "s"} included.`}
+                </span>
+              </p>
+              {sharedBanner.hasCompare && !compareOpen && (
+                <button onClick={() => { setCompareOpen(true); setView("editor"); }} className="tool-button h-8 shrink-0 border-[var(--brand-border)] bg-white px-3 text-[11px] text-[var(--brand)]"><GitCompare size={14} /> Open Compare</button>
+              )}
+              <button onClick={() => setSharedBanner(null)} className="shrink-0 rounded-lg p-1.5 text-[var(--brand)] hover:bg-white/60" aria-label="Dismiss"><X size={16} /></button>
+            </div>
+          )}
 
           <div className="flex flex-1 flex-col gap-5 p-4 lg:flex-row lg:p-6">
             <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-250px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
@@ -1100,7 +1381,7 @@ export default function Index() {
                 </div>
               </div>}
               <div className="flex items-center justify-between border-b border-[var(--edge)] px-5 py-3">
-                <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button><button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button><button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button></div>
+                <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button><button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button><button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button><button onClick={() => { setView("graph"); setCompareOpen(false); }} className={view === "graph" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Graph</button></div>
                 <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
               </div>
               <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--surface-soft)]">
@@ -1135,7 +1416,7 @@ export default function Index() {
                       </div>
                     </div>
                   </div>
-                </div> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
+                </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
                 {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
                 {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
@@ -1156,6 +1437,12 @@ export default function Index() {
               <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
                 <div className="flex items-center justify-between"><div><p className="text-base font-bold tracking-[-0.025em]">Reference notes</p><p className="mt-1 text-xs text-slate-400">Context for future you.</p></div><div className="flex items-center gap-2"><span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)]">{notes.length}</span><button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse notes panel" title="Collapse notes panel"><PanelRightClose size={16} /></button></div></div>
                 <div className="relative mt-4"><Search size={15} className="absolute left-3 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--violet-dark)]" /></div>
+                <div className="mt-3 flex items-center gap-1">
+                  {([["all", "All", notes.length], ["open", "Open", openNoteCount], ["resolved", "Resolved", notes.length - openNoteCount]] as const).map(([value, label, count]) => (
+                    <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${noteFilter === value ? "bg-[var(--brand)] text-white" : "bg-[var(--surface-soft)] text-slate-500 hover:text-[var(--brand)]"}`}>{label} {count}</button>
+                  ))}
+                  {notes.length > 0 && <button onClick={exportReview} className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-slate-500 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]" title="Export review as markdown"><Download size={12} /> Review</button>}
+                </div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
                 {visibleNotes.map((note) => editingNoteId === note.id ? (
@@ -1169,7 +1456,35 @@ export default function Index() {
                       <button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">Update note</button>
                     </div>
                   </div>
-                ) : <article key={note.id} onClick={() => jumpToNote(note)} className="group relative cursor-pointer rounded-xl border border-[var(--edge-soft)] p-4 transition hover:border-[var(--edge-soft)] hover:shadow-sm"><span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.color}`} /><div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex"><button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button><button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button></div><p className="pl-2 text-sm font-bold text-slate-700">{note.title}</p><p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>{note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[var(--brand)]">Mentioned: @{note.mention}</p>}<div className="mt-3 flex items-center gap-1.5 pl-2 font-mono text-[10px] text-[var(--brand)]"><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div></article>)}
+                ) : (
+                  <article key={note.id} className={`group relative rounded-xl border p-4 transition hover:shadow-sm ${note.resolved ? "border-[var(--edge-soft)] bg-[var(--surface-soft)] opacity-70" : "border-[var(--edge-soft)]"}`}>
+                    <span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.resolved ? "bg-emerald-400" : note.color}`} />
+                    <div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex">
+                      <button onClick={(event) => { event.stopPropagation(); toggleResolve(note); }} className={`rounded p-1 hover:bg-slate-100 ${note.resolved ? "text-emerald-600" : "text-slate-400"}`} aria-label={note.resolved ? "Reopen" : "Resolve"} title={note.resolved ? "Reopen" : "Mark resolved"}><CircleCheck size={14} /></button>
+                      <button onClick={(event) => { event.stopPropagation(); setReplyingNoteId(replyingNoteId === note.id ? null : note.id); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Reply" title="Reply"><ReplyIcon size={13} /></button>
+                      <button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button>
+                      <button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button>
+                    </div>
+                    <p className={`cursor-pointer pl-2 text-sm font-bold text-slate-700 ${note.resolved ? "line-through decoration-slate-400" : ""}`} onClick={() => jumpToNote(note)}>{note.title}{note.resolved && <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase text-emerald-700 no-underline">Resolved</span>}</p>
+                    <p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>
+                    {note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[var(--brand)]">Mentioned: @{note.mention}</p>}
+                    {note.replies && note.replies.length > 0 && (
+                      <div className="mt-3 space-y-2 border-l-2 border-[var(--edge-soft)] pl-3">
+                        {note.replies.map((reply) => (
+                          <div key={reply.id} className="flex items-start gap-1.5 text-xs text-slate-500"><CornerDownRight size={12} className="mt-0.5 shrink-0 text-slate-300" /><span>{reply.mention && <span className="font-bold text-[var(--brand)]">@{reply.mention} </span>}{reply.text}</span></div>
+                        ))}
+                      </div>
+                    )}
+                    {replyingNoteId === note.id && (
+                      <div className="mt-3 rounded-lg border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-2">
+                        <textarea autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…" className="min-h-12 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" />
+                        <input value={replyMention} onChange={(event) => setReplyMention(event.target.value)} placeholder="Mention (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1 text-xs outline-none placeholder:text-slate-400" />
+                        <div className="mt-2 flex justify-end gap-2"><button onClick={() => { setReplyingNoteId(null); setReplyText(""); setReplyMention(""); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={() => addReply(note.id)} className="rounded-md bg-[var(--brand)] px-2.5 py-1 text-xs font-bold text-white">Reply</button></div>
+                      </div>
+                    )}
+                    <div className="mt-3 flex cursor-pointer items-center gap-1.5 pl-2 font-mono text-[10px] text-[var(--brand)]" onClick={() => jumpToNote(note)}><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div>
+                  </article>
+                ))}
                 {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
                 {showComposer && !editingNoteId ? <div className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">{editingNoteId ? "Update note" : "Save note"}</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--brand-border)] py-3 text-sm font-bold text-[var(--brand)] transition hover:bg-[var(--brand-soft-hover)]"><MessageSquarePlus size={16} /> Add reference note</button>}
               </div>
@@ -1263,6 +1578,124 @@ export default function Index() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {codegenOpen && (
+        <div onClick={() => setCodegenOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Generate code from JSON</p><button onClick={() => setCodegenOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+            <p className="mt-1 text-xs text-slate-400">Typed models generated from your document — runs entirely in your browser, nothing is uploaded.</p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Language</span>
+                <select value={codegenLangIndex} onChange={(event) => { setCodegenLangIndex(Number(event.target.value)); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+                  {CODEGEN_LANGUAGES.map((lang, index) => <option key={`${lang.id}-${index}`} value={index}>{lang.label}</option>)}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Root type name</span>
+                <input value={codegenRootName} onChange={(event) => setCodegenRootName(event.target.value)} placeholder="Root" className="w-40 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]" />
+              </label>
+              <button onClick={runCodegen} disabled={codegenLoading} className="flex items-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{codegenLoading ? <Loader2 size={16} className="animate-spin" /> : <FileCode2 size={16} />} Generate</button>
+              {codegenOutput && !codegenLoading && (
+                <div className="ml-auto flex items-center gap-2">
+                  <button onClick={copyCode} className="tool-button h-9"><Copy size={14} /> Copy</button>
+                  <button onClick={downloadCode} className="tool-button h-9"><Download size={14} /> Download</button>
+                </div>
+              )}
+            </div>
+            {codegenError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{codegenError}</div>}
+            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)]">
+              {codegenLoading ? (
+                <div className="flex h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 size={16} className="animate-spin" /> Generating…</div>
+              ) : codegenOutput ? (
+                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700">{codegenOutput}</pre>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-sm text-slate-400">Choose a language and click Generate.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {convertOpen && (
+        <div onClick={() => setConvertOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Convert format</p><button onClick={() => setConvertOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+            <p className="mt-1 text-xs text-slate-400">Convert between JSON and YAML, XML, or TOML — entirely in your browser.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="flex overflow-hidden rounded-lg border border-[var(--edge)]">
+                <button onClick={() => { setConvertDirection("to"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "to" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500"}`}>JSON →</button>
+                <button onClick={() => { setConvertDirection("from"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "from" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500"}`}>→ JSON</button>
+              </div>
+              <select value={convertFormatId} onChange={(event) => { setConvertFormatId(event.target.value as ConvertFormat); setConvertOutput(""); setConvertError(""); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+                {CONVERT_FORMATS.map((format) => <option key={format.id} value={format.id}>{format.label}</option>)}
+              </select>
+              <button onClick={runConvert} className="flex items-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white"><FileJson2 size={16} /> Convert</button>
+              {convertOutput && (
+                <div className="ml-auto flex items-center gap-2">
+                  {convertDirection === "from" && <button onClick={loadConvertIntoEditor} className="tool-button h-9 border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]"><Check size={14} /> Load into editor</button>}
+                  <button onClick={copyConvert} className="tool-button h-9"><Copy size={14} /> Copy</button>
+                  <button onClick={downloadConvert} className="tool-button h-9"><Download size={14} /> Download</button>
+                </div>
+              )}
+            </div>
+            {convertDirection === "from" && (
+              <textarea value={convertInput} onChange={(event) => setConvertInput(event.target.value)} placeholder={`Paste ${convertFormatInfo().label} here…`} spellCheck={false} className="mt-3 h-32 w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3 font-mono text-xs outline-none focus:border-[var(--brand-border)]" />
+            )}
+            {convertError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{convertError}</div>}
+            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)]">
+              {convertOutput ? (
+                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700">{convertOutput}</pre>
+              ) : (
+                <div className="flex h-32 items-center justify-center text-sm text-slate-400">{convertDirection === "to" ? "Click Convert to turn the current JSON into " + convertFormatInfo().label + "." : "Paste " + convertFormatInfo().label + " above and click Convert."}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div onClick={() => setHistoryOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div><p className="text-lg font-bold text-slate-800">Version history</p><p className="mt-0.5 text-xs text-slate-400">{documentName} · saved on-device as you edit</p></div>
+              <button onClick={() => setHistoryOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="mt-4 min-h-0 flex-1 overflow-auto">
+              {historyVersions.length === 0 ? (
+                <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-sm text-slate-400"><HistoryIcon size={22} className="text-[var(--brand)]" />No versions yet. Edits are snapshotted automatically a couple of seconds after you stop typing.</div>
+              ) : (
+                <div className="space-y-2">
+                  {historyVersions.map((version, index) => {
+                    const changes = versionDiffCount(version);
+                    const isCurrent = index === 0 && version.content === json;
+                    return (
+                      <div key={version.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--edge)] p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-700">{relativeTime(version.savedAt)}</span>
+                            {isCurrent && <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand)]">current</span>}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-slate-400">{new Date(version.savedAt).toLocaleString()} · {(version.size / 1024).toFixed(1)} KB · {version.content.split("\n").length} lines{changes !== null && !isCurrent ? ` · ${changes} value${changes === 1 ? "" : "s"} differ from current` : ""}</p>
+                        </div>
+                        {!isCurrent && (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => compareVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><GitCompare size={13} /> Compare</button>
+                            <button onClick={() => restoreVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><RotateCcw size={13} /> Restore</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {historyVersions.length > 0 && (
+              <div className="mt-3 flex justify-end border-t border-[var(--edge-soft)] pt-3">
+                <button onClick={clearDocHistory} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"><Trash2 size={14} /> Clear history</button>
               </div>
             )}
           </div>
