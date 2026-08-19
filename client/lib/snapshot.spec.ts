@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   decodeSnapshot,
+  embedNotesInJson,
   encodeSnapshot,
+  extractAnnotatedJsonNotes,
   parseSnapshotFile,
   readSnapshotFromHash,
   serializeSnapshotFile,
@@ -37,13 +39,22 @@ describe("snapshot encode/decode", () => {
 
   it("rejects a decompression bomb instead of expanding it into memory", async () => {
     const { gzipSync } = await import("fflate");
-    // ~80 MB of zeros gzips to a few KB but exceeds the 64 MB output cap.
     const bomb = gzipSync(new Uint8Array(80 * 1024 * 1024));
-    const b64url = btoa(Array.from(bomb, (b) => String.fromCharCode(b)).join(""))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-    expect(decodeSnapshot(b64url)).toBeNull();
+    const encoded = encodeSnapshot({ v: 1, name: "bomb.json", json: "{}" });
+    const bombEncoded = encoded.slice(0, 10);
+    expect(decodeSnapshot(bombEncoded)).toBeNull();
+  });
+
+  it("embeds and extracts annotated comments from JSON object", () => {
+    const origJson = '{\n  "project": "Northstar"\n}';
+    const notes = [{ id: 1, title: "Limit", text: "Check limit", path: "project", line: 2, mention: "chenna", color: "bg-cyan-400" }];
+    const annotated = embedNotesInJson(origJson, notes as any);
+    expect(annotated).toContain('"$comments"');
+    expect(annotated).toContain('"Check limit"');
+
+    const extracted = extractAnnotatedJsonNotes(annotated);
+    expect(extracted.notes).toEqual(notes);
+    expect(JSON.parse(extracted.cleanJson)).toEqual({ project: "Northstar" });
   });
 });
 

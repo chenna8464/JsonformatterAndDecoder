@@ -76,4 +76,18 @@ describe("buildComparisonReport", () => {
     expect(report).toContain("## Changed lines");
     expect(report).not.toContain("Differences by path");
   });
+
+  it("does not report changed lines when JSON documents are structurally identical", () => {
+    const left = '{\n  "features": [\n    "analytics",\n    "webhooks"\n  ]\n}';
+    const right = '{"features":["analytics","webhooks"]}'; // unformatted identical data
+    const report = buildComparisonReport({
+      documentName: "sample.json",
+      leftJson: left,
+      rightJson: right,
+      rows: diffLines(left, right),
+      values: valueDiffs(JSON.parse(left), JSON.parse(right)),
+    });
+    expect(report).toContain("No differences — the documents match.");
+    expect(report).not.toContain("## Changed lines");
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn } from "./utils";
+import { cn, getJsonErrorLine } from "./utils";
 
 describe("cn function", () => {
   it("should merge classes correctly", () => {
@@ -28,5 +28,18 @@ describe("cn function", () => {
     expect(cn("base", { conditional: true, "not-included": false })).toBe(
       "base conditional",
     );
+  });
+});
+
+describe("getJsonErrorLine helper", () => {
+  it("returns null for valid json", () => {
+    expect(getJsonErrorLine('{"a":1}').line).toBeNull();
+  });
+
+  it("detects error line for malformed json", () => {
+    const invalid = '{\n  "a": 1,\n  "b": \n}';
+    const err = getJsonErrorLine(invalid);
+    expect(err.line).toBeGreaterThan(0);
+    expect(err.message).toBeDefined();
   });
 });

@@ -113,9 +113,70 @@ describe("repairJson", () => {
     expect(parse("{status: active, date: 2024-05-18}")).toEqual({ status: "active", date: "2024-05-18" });
   });
 
+  it("repairs missing opening braces and brackets after key colons", () => {
+    const invalidJson = `{
+  "project": 
+    "name": "Northstar API",
+    "version": "2.4.0",
+    "environment": "production"
+  },
+  "endpoints": 
+    {
+      "name": "Get user profile",
+      "method": "GET",
+      "path": "/api/v1/users/:id",
+      "auth": true
+    },
+    {
+      "name": "Update user profile",
+      "method": "PATCH",
+      "path": "/api/v1/users/:id",
+      "auth": true
+    }
+  ],
+  "settings": {
+    "rateLimit": 100,
+    "logging": true,
+    "features": [
+      "analytics",
+      "webhooks"
+    ]
+  }
+}`;
+    const result = repairJson(invalidJson);
+    expect(result.repaired).toBe(true);
+    expect(JSON.parse(result.value)).toEqual({
+      project: {
+        name: "Northstar API",
+        version: "2.4.0",
+        environment: "production",
+      },
+      endpoints: [
+        {
+          name: "Get user profile",
+          method: "GET",
+          path: "/api/v1/users/:id",
+          auth: true,
+        },
+        {
+          name: "Update user profile",
+          method: "PATCH",
+          path: "/api/v1/users/:id",
+          auth: true,
+        },
+      ],
+      settings: {
+        rateLimit: 100,
+        logging: true,
+        features: ["analytics", "webhooks"],
+      },
+    });
+  });
+
   it("reports an error for hopeless input", () => {
     const result = repairJson("");
     expect(result.repaired).toBe(false);
     expect(result.error).toBeTruthy();
   });
 });
+

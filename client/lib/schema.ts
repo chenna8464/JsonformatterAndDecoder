@@ -27,3 +27,36 @@ export function validateAgainstSchema(schema: unknown, value: unknown): SchemaVa
   if (valid) return { ok: true, issues: [] };
   return { ok: false, issues: (validate.errors ?? []).map(formatIssue) };
 }
+
+/** Automatically infer a draft-07 JSON Schema from an example JSON value. */
+export function inferJsonSchema(value: unknown): Record<string, unknown> {
+  if (value === null) return { type: "null" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  if (typeof value === "number") return Number.isInteger(value) ? { type: "integer" } : { type: "number" };
+  if (typeof value === "string") return { type: "string" };
+
+  if (Array.isArray(value)) {
+    const itemSchemas = value.map((item) => inferJsonSchema(item));
+    return {
+      type: "array",
+      items: itemSchemas.length > 0 ? itemSchemas[0] : {},
+    };
+  }
+
+  if (typeof value === "object") {
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      properties[key] = inferJsonSchema(child);
+      required.push(key);
+    }
+    return {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      required,
+      properties,
+    };
+  }
+
+  return { type: "object" };
+}

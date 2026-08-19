@@ -136,7 +136,10 @@ export function buildComparisonReport(input: ReportInput): string {
   const { documentName, leftJson, rightJson, rows, values } = input;
   const leftLabel = input.leftLabel ?? "Current";
   const rightLabel = input.rightLabel ?? "Compared";
-  const changedRows = rows.filter((row) => row.status !== "same");
+  
+  // When structural differences are 0 for valid JSON, suppress superficial line-level changes
+  const isIdenticalJson = values !== null && values.length === 0;
+  const changedRows = isIdenticalJson ? [] : rows.filter((row) => row.status !== "same");
   const lineCounts = {
     changed: changedRows.filter((r) => r.status === "changed").length,
     added: changedRows.filter((r) => r.status === "added").length,

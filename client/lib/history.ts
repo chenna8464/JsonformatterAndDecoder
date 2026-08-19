@@ -16,7 +16,9 @@ export type Version = {
 
 const DB_NAME = "jsonote";
 const STORE = "versions";
-const MAX_PER_DOC = 60;
+export const MAX_PER_DOC = 30; // 30 snapshots sweet spot
+export const RETENTION_DAYS = 30; // 30 days (1 month) retention window sweet spot
+export const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -43,22 +45,58 @@ export function shouldSaveVersion(content: string, latest: Version | undefined):
   return true;
 }
 
-/** Pure: keep only the newest `max` versions, returning ids to delete. */
-export function versionsToPrune(versions: Version[], max = MAX_PER_DOC): number[] {
-  if (versions.length <= max) return [];
-  return versions
-    .slice()
-    .sort((a, b) => b.savedAt - a.savedAt)
-    .slice(max)
-    .map((v) => v.id as number)
-    .filter((id) => id !== undefined);
+/**
+ * Pure: keep versions from the last 30 days (up to `max` snapshots),
+ * returning the IDs of versions that should be pruned.
+ */
+export function versionsToPrune(
+  versions: Version[],
+  max = MAX_PER_DOC,
+  maxAgeMs = RETENTION_MS,
+  now = Date.now()
+): number[] {
+  if (versions.length <= 1) return [];
+
+  const sorted = versions.slice().sort((a, b) => b.savedAt - a.savedAt);
+  const toDelete = new Set<number>();
+
+  // 1. Prune versions beyond max snapshot limit
+  if (sorted.length > max) {
+    for (let i = max; i < sorted.length; i++) {
+      if (sorted[i].id !== undefined) {
+        toDelete.add(sorted[i].id as number);
+      }
+    }
+  }
+
+  // 2. Prune versions older than 30 days (1 month sweet spot)
+  for (let i = 0; i < sorted.length; i++) {
+    const age = now - sorted[i].savedAt;
+    if (age > maxAgeMs) {
+      if (sorted[i].id !== undefined) {
+        toDelete.add(sorted[i].id as number);
+      }
+    }
+  }
+
+  return Array.from(toDelete);
 }
 
-/** All versions for a document, newest first. */
-export async function listVersions(docKey: string): Promise<Version[]> {
+/** All versions for a document, newest first. Automatically prunes expired ones. */
+export async function listVersions(docKey: string, now = Date.now()): Promise<Version[]> {
   const db = await getDb();
   const all = (await db.getAllFromIndex(STORE, "docKey", docKey)) as Version[];
-  return all.sort((a, b) => b.savedAt - a.savedAt);
+  const sorted = all.sort((a, b) => b.savedAt - a.savedAt);
+
+  // Auto-prune versions older than 30 days or beyond MAX_PER_DOC
+  const pruneIds = versionsToPrune(sorted, MAX_PER_DOC, RETENTION_MS, now);
+  if (pruneIds.length) {
+    const tx = db.transaction(STORE, "readwrite");
+    await Promise.all([...pruneIds.map((pid) => tx.store.delete(pid)), tx.done]);
+    return sorted.filter((v) => v.id !== undefined && !pruneIds.includes(v.id));
+  }
+
+  return sorted;
 }
 
 /**
@@ -66,7 +104,7 @@ export async function listVersions(docKey: string): Promise<Version[]> {
  * if it was skipped as a duplicate. `now` is injectable for testing.
  */
 export async function saveVersion(docKey: string, name: string, content: string, now = Date.now()): Promise<Version | null> {
-  const existing = await listVersions(docKey);
+  const existing = await listVersions(docKey, now);
   if (!shouldSaveVersion(content, existing[0])) return null;
 
   const db = await getDb();
@@ -74,7 +112,7 @@ export async function saveVersion(docKey: string, name: string, content: string,
   const id = (await db.add(STORE, version)) as number;
   version.id = id;
 
-  const prune = versionsToPrune([version, ...existing]);
+  const prune = versionsToPrune([version, ...existing], MAX_PER_DOC, RETENTION_MS, now);
   if (prune.length) {
     const tx = db.transaction(STORE, "readwrite");
     await Promise.all([...prune.map((pid) => tx.store.delete(pid)), tx.done]);
@@ -82,9 +120,25 @@ export async function saveVersion(docKey: string, name: string, content: string,
   return version;
 }
 
+export async function pruneExpiredVersions(docKey: string, now = Date.now()): Promise<number> {
+  const existing = await listVersions(docKey, now);
+  const pruneIds = versionsToPrune(existing, MAX_PER_DOC, RETENTION_MS, now);
+  if (pruneIds.length) {
+    const db = await getDb();
+    const tx = db.transaction(STORE, "readwrite");
+    await Promise.all([...pruneIds.map((pid) => tx.store.delete(pid)), tx.done]);
+  }
+  return pruneIds.length;
+}
+
 export async function getVersion(id: number): Promise<Version | undefined> {
   const db = await getDb();
   return (await db.get(STORE, id)) as Version | undefined;
+}
+
+export async function deleteVersion(id: number): Promise<void> {
+  const db = await getDb();
+  await db.delete(STORE, id);
 }
 
 export async function clearHistory(docKey: string): Promise<void> {

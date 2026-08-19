@@ -1,3 +1,5 @@
+import { jsonrepair } from "jsonrepair";
+
 export type RepairResult = {
   value: string;
   repaired: boolean;
@@ -5,11 +7,63 @@ export type RepairResult = {
 };
 
 /**
+ * Preprocess structural issues in malformed JSON such as missing opening `{` or `[`
+ * after key colons (`"key":`).
+ */
+function preprocessStructuralMissingContainers(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const processedLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    const keyColonMatch = line.match(/^(\s*"?[A-Za-z0-9_$-]+"?\s*:\s*)$/);
+    if (keyColonMatch) {
+      let nextLineIdx = i + 1;
+      while (nextLineIdx < lines.length && lines[nextLineIdx].trim() === "") {
+        nextLineIdx++;
+      }
+      if (nextLineIdx < lines.length) {
+        const nextLine = lines[nextLineIdx].trim();
+        if (/^"?[A-Za-z0-9_$-]+"?\s*:/.test(nextLine)) {
+          line = line + " {";
+        } else if (/^\{/.test(nextLine) || /^(?!\s*"?[A-Za-z0-9_$-]+"?\s*:)/.test(nextLine)) {
+          let depthBraces = 0;
+          let depthBrackets = 0;
+          let hasClosingBracket = false;
+          let hasComma = false;
+          for (let j = nextLineIdx; j < lines.length; j++) {
+            const l = lines[j];
+            depthBraces += (l.match(/\{/g) || []).length - (l.match(/\}/g) || []).length;
+            depthBrackets += (l.match(/\[/g) || []).length - (l.match(/\]/g) || []).length;
+            if (l.includes(",")) hasComma = true;
+            if (depthBraces < 0) break;
+            if (depthBrackets < 0 || l.trim().startsWith("]") || l.trim().startsWith("],")) {
+              hasClosingBracket = true;
+              break;
+            }
+          }
+          if (hasClosingBracket && hasComma && depthBrackets <= 0 && depthBraces >= 0) {
+            line = line + " [";
+          } else if (depthBraces < 0) {
+            line = line + " {";
+          }
+        }
+      }
+    }
+    processedLines.push(line);
+  }
+
+  return processedLines.join("\n");
+}
+
+
+/**
  * Tolerant JSON repair: parses malformed JSON character-by-character and
  * rebuilds a valid document. Handles single/smart quotes, unquoted keys,
  * comments, trailing/missing commas, Python/JS literals (True, None,
  * undefined, NaN, Infinity), lax numbers (.5, +2, 0x1A), raw newlines in
- * strings, unterminated strings, and unclosed brackets.
+ * strings, unterminated strings, missing `{`/`[` containers, and unclosed brackets.
  */
 export function repairJson(source: string, indent = 2): RepairResult {
   // Fast path: already valid JSON — reformat and scrub leftover artifacts.
@@ -18,13 +72,54 @@ export function repairJson(source: string, indent = 2): RepairResult {
     const { value, changed } = cleanArtifacts(parsed);
     return { value: JSON.stringify(value, null, indent), repaired: changed };
   } catch {
-    // fall through to tolerant parsing
+    // fall through
   }
 
+  const preprocessed = preprocessStructuralMissingContainers(source);
+
+  // Attempt 1: Valid JSON after structural container preprocessing
+  try {
+    const parsed = JSON.parse(preprocessed);
+    const { value } = cleanArtifacts(parsed);
+    return { value: JSON.stringify(value, null, indent), repaired: true };
+  } catch {
+    // fall through
+  }
+
+  // Attempt 2: TolerantParser on preprocessed text
+  try {
+    const parser = new TolerantParser(preprocessed);
+    const parsed = parser.parseDocument();
+    return { value: JSON.stringify(cleanArtifacts(parsed).value, null, indent), repaired: true };
+  } catch {
+    // fall through
+  }
+
+  // Attempt 3: TolerantParser on original raw source
   try {
     const parser = new TolerantParser(source);
     const parsed = parser.parseDocument();
     return { value: JSON.stringify(cleanArtifacts(parsed).value, null, indent), repaired: true };
+  } catch {
+    // fall through
+  }
+
+  // Attempt 4: jsonrepair library on preprocessed text
+  try {
+    const repairedText = jsonrepair(preprocessed);
+    const parsed = JSON.parse(repairedText);
+    const { value } = cleanArtifacts(parsed);
+    return { value: JSON.stringify(value, null, indent), repaired: true };
+  } catch {
+    // fall through
+  }
+
+  // Attempt 5: jsonrepair library on original raw source
+  try {
+    const repairedText = jsonrepair(source);
+    const parsed = JSON.parse(repairedText);
+    const { value } = cleanArtifacts(parsed);
+    return { value: JSON.stringify(value, null, indent), repaired: true };
   } catch (error) {
     return {
       value: source,
@@ -33,6 +128,10 @@ export function repairJson(source: string, indent = 2): RepairResult {
     };
   }
 }
+
+
+
+
 
 /**
  * Scrub artifacts left behind by careless editing or previous bad repairs:

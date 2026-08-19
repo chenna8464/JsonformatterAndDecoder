@@ -1,4 +1,4 @@
-// JSON ⇄ CSV conversion and a small JSON query engine.
+import type { SnapshotNote } from "./snapshot";
 
 type Primitive = string | number | boolean | null;
 
@@ -35,6 +35,59 @@ export function jsonToCsv(value: unknown): string {
     lines.push(headers.map((header) => escapeCsvCell(row[header] ?? null)).join(","));
   }
   return lines.join("\n");
+}
+
+/** Extract # comment metadata lines and data lines from CSV text. */
+export function extractCsvNotesAndData(text: string): { dataText: string; notes: SnapshotNote[] | null } {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const commentLines = lines.filter((l) => l.trim().startsWith("#"));
+  const dataLines = lines.filter((l) => !l.trim().startsWith("#"));
+  const dataText = dataLines.join("\n");
+
+  if (commentLines.length === 0) return { dataText, notes: null };
+
+  const notes: SnapshotNote[] = [];
+  let currentNote: SnapshotNote | null = null;
+
+  for (const line of commentLines) {
+    const trimmed = line.replace(/^#\s*/, "").trim();
+    const noteMatch = trimmed.match(/^- \[([^\]]+)\] ([^:]+): (.*)$/);
+    if (noteMatch) {
+      const path = noteMatch[1];
+      const title = noteMatch[2];
+      let body = noteMatch[3];
+      let mention = "";
+      const mentionMatch = body.match(/\s*\(@([^)]+)\)$/);
+      if (mentionMatch) {
+        mention = mentionMatch[1];
+        body = body.replace(/\s*\(@([^)]+)\)$/, "");
+      }
+      currentNote = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        title,
+        text: body,
+        path,
+        line: 1,
+        mention,
+        color: "bg-cyan-400",
+        replies: [],
+      };
+      notes.push(currentNote);
+    } else if (currentNote) {
+      const replyMatch = trimmed.match(/^Reply \((?:@([^)]+)|user)\): (.*)$/);
+      if (replyMatch) {
+        currentNote.replies = currentNote.replies || [];
+        currentNote.replies.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          text: replyMatch[2],
+          mention: replyMatch[1] || "",
+          at: Date.now(),
+        });
+      }
+    }
+  }
+
+  return { dataText, notes: notes.length > 0 ? notes : null };
 }
 
 /** Parse one CSV line respecting quoted cells. */
@@ -89,11 +142,11 @@ const setDeep = (target: Record<string, unknown>, path: string, value: Primitive
 
 /** Convert CSV text (with a header row) into an array of JSON objects. */
 export function csvToJson(text: string): Record<string, unknown>[] {
-  // Split into logical lines, respecting quoted cells that contain newlines.
+  const { dataText } = extractCsvNotesAndData(text);
   const lines: string[] = [];
   let current = "";
   let inQuotes = false;
-  for (const char of text.replace(/\r\n?/g, "\n")) {
+  for (const char of dataText) {
     if (char === '"') inQuotes = !inQuotes;
     if (char === "\n" && !inQuotes) {
       lines.push(current);

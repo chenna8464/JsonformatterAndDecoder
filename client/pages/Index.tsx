@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
+  AlertCircle,
+  AtSign,
   Braces,
   Building2,
   Check,
@@ -16,6 +18,7 @@ import {
   Minimize2,
   Upload,
   FileSpreadsheet,
+  FileText,
   TerminalSquare,
   PanelLeftClose,
   PanelLeftOpen,
@@ -48,6 +51,17 @@ import {
   Sparkles,
   WandSparkles,
   X,
+  Mail,
+  Phone,
+  Send,
+  MessageCircle,
+  Clock,
+  ExternalLink,
+  Globe,
+  Heart,
+  Camera,
+  PictureInPicture,
+  Layers,
 } from "lucide-react";
 
 const initialJson = `{
@@ -93,16 +107,17 @@ type DocumentRecord = { name: string; content: string; updated: string };
 type Workspace = { id: number; name: string; type: "Personal" | "Team"; color: string };
 
 import { repairJson } from "@/lib/jsonRepair";
+import { getJsonErrorLine } from "@/lib/utils";
 import { buildComparisonReport, diffLines, lineStatusMaps, valueDiffs, type LineStatus } from "@/lib/diff";
 import { copyText, downloadFile } from "@/lib/share";
-import { buildSnapshotLink, parseSnapshotFile, readSnapshotFromHash, serializeSnapshotFile, type Snapshot } from "@/lib/snapshot";
-import { csvToJson, jsonToCsv, queryJson, setAtPath } from "@/lib/convert";
+import { buildSnapshotLink, embedNotesInJson, extractAnnotatedJsonNotes, generateShortAlias, parseSnapshotFile, readSnapshotFromHash, serializeSnapshotFile, type Snapshot } from "@/lib/snapshot";
+import { csvToJson, extractCsvNotesAndData, jsonToCsv, queryJson, setAtPath } from "@/lib/convert";
 import { CODEGEN_LANGUAGES, generateCode } from "@/lib/codegen";
 import { CONVERT_FORMATS, formatToJson, jsonToFormat, type ConvertFormat } from "@/lib/convertFormats";
-import { clearHistory, listVersions, saveVersion, type Version } from "@/lib/history";
+import { clearHistory, deleteVersion, listVersions, saveVersion, type Version } from "@/lib/history";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
-import { validateAgainstSchema, type SchemaIssue } from "@/lib/schema";
+import { inferJsonSchema, validateAgainstSchema, type SchemaIssue } from "@/lib/schema";
 import { arrayObjectFields, sortJsonValue, type SortDirection } from "@/lib/sort";
 import JsonCodeEditor, { type JsonCodeEditorHandle } from "@/components/JsonCodeEditor";
 import JsonGraph from "@/components/JsonGraph";
@@ -200,10 +215,12 @@ type DiffPaneProps = {
   statuses: Map<number, LineStatus>;
   editorRef: RefObject<HTMLTextAreaElement>;
   ariaLabel: string;
+  errorLine?: number | null;
+  errorMessage?: string | null;
 };
 
-/** Editable textarea with a synced backdrop that paints diff colors per line. */
-function DiffPane({ value, onChange, statuses, editorRef, ariaLabel }: DiffPaneProps) {
+/** Editable textarea with a synced backdrop that paints diff colors & red squiggly syntax error lines. */
+function DiffPane({ value, onChange, statuses, editorRef, ariaLabel, errorLine, errorMessage }: DiffPaneProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const lines = value.split("\n");
   const syncScroll = () => {
@@ -215,15 +232,29 @@ function DiffPane({ value, onChange, statuses, editorRef, ariaLabel }: DiffPaneP
   };
   return (
     <div className="relative min-h-[280px] flex-1 overflow-hidden bg-white">
-      {/* Backdrop paints the visible text + diff colors; the textarea on top is
-          transparent (caret/selection only) so the two never double-render. */}
+      {/* Backdrop paints the visible text + diff colors + red squiggly syntax error line; textarea on top is transparent */}
       <div ref={backdropRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="min-w-max p-4 font-mono text-xs leading-6 text-slate-700">
-          {lines.map((line, index) => (
-            <div key={index} className={`h-6 whitespace-pre ${statusStyles[statuses.get(index + 1) ?? "same"]}`}>
-              {line || " "}
-            </div>
-          ))}
+          {lines.map((line, index) => {
+            const isError = errorLine === index + 1;
+            return (
+              <div
+                key={index}
+                className={`h-6 whitespace-pre ${
+                  isError
+                    ? "bg-rose-100/90 text-rose-800 font-bold underline decoration-rose-500 decoration-wavy decoration-2 ring-1 ring-rose-400"
+                    : statusStyles[statuses.get(index + 1) ?? "same"]
+                }`}
+              >
+                {line || " "}
+                {isError && (
+                  <span className="ml-3 inline-flex items-center gap-1 rounded bg-rose-600 px-1.5 py-0.5 font-sans text-[10px] font-bold text-white shadow-2xs">
+                    <AlertCircle size={11} /> {errorMessage || "Syntax error on this line"}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       <textarea
@@ -261,6 +292,8 @@ function ComparePane({ value, onChange, statuses, editorRef, ariaLabel }: Compar
   const [mode, setMode] = useState<PaneMode>("editor");
   const [queryText, setQueryText] = useState("");
   const [limit, setLimit] = useState(50);
+  const errorInfo = useMemo(() => getJsonErrorLine(value), [value]);
+
   const parsed = useMemo(() => {
     try {
       return { value: JSON.parse(value) as unknown, error: false };
@@ -293,7 +326,7 @@ function ComparePane({ value, onChange, statuses, editorRef, ariaLabel }: Compar
         ))}
         <span className="ml-auto pr-2 text-[10px] font-semibold text-slate-400">{statuses.size > 0 ? `${statuses.size} lines differ` : "in sync"}</span>
       </div>
-      {mode === "editor" && <DiffPane value={value} onChange={onChange} statuses={statuses} editorRef={editorRef} ariaLabel={ariaLabel} />}
+      {mode === "editor" && <DiffPane value={value} onChange={onChange} statuses={statuses} editorRef={editorRef} ariaLabel={ariaLabel} errorLine={errorInfo.line} errorMessage={errorInfo.message} />}
       {mode === "tree" && (
         <div className="min-h-0 flex-1 overflow-auto p-3">
           {parsed.error ? (
@@ -494,6 +527,9 @@ export default function Index() {
   const [json, setJson] = useState(initialJson);
   const [status, setStatus] = useState<"valid" | "invalid">("valid");
   const [notes, setNotes] = useState<Note[]>(starterNotes);
+  const [documentNotes, setDocumentNotes] = useState<Record<string, Note[]>>({
+    "1:northstar-api.json": starterNotes,
+  });
   const [noteText, setNoteText] = useState("");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteMention, setNoteMention] = useState("");
@@ -516,6 +552,225 @@ export default function Index() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
+  const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
+  const pipWindowRef = useRef<Window | null>(null);
+  const [helpTab, setHelpTab] = useState<"query" | "contact" | "faq">("query");
+  const [supportName, setSupportName] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [supportCategory, setSupportCategory] = useState("General Query");
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportIncludeJson, setSupportIncludeJson] = useState(true);
+  const [querySubmitted, setQuerySubmitted] = useState(false);
+  const [queryRefId, setQueryRefId] = useState("");
+  const [callbackPhone, setCallbackPhone] = useState("");
+  const [callbackTime, setCallbackTime] = useState("Morning (9 AM - 12 PM)");
+  const [callbackSubmitted, setCallbackSubmitted] = useState(false);
+
+  // Sync main JSON state into open Document Picture-in-Picture window
+  useEffect(() => {
+    if (pipWindowRef.current && !pipWindowRef.current.closed) {
+      const textarea = pipWindowRef.current.document.getElementById("pip-text") as HTMLTextAreaElement;
+      if (textarea && textarea.value !== json) {
+        textarea.value = json;
+        const linesSpan = pipWindowRef.current.document.getElementById("pip-lines");
+        if (linesSpan) linesSpan.innerText = `${json.split("\n").length} lines`;
+      }
+    }
+  }, [json]);
+
+  // Automatic Spotify / Google Meet style Overlay detection:
+  // When developer switches away to another tab or application (VS Code, Terminal, Postman),
+  // automatically show the floating mini-editor overlay! When returning to JSONote tab, auto-dock/close it.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (!pipWindowRef.current && !floatingWidgetOpen) {
+          setFloatingWidgetOpen(true);
+        }
+      } else {
+        if (floatingWidgetOpen) {
+          setFloatingWidgetOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [floatingWidgetOpen]);
+
+  const toggleDocumentPip = async () => {
+    if (pipWindowRef.current) {
+      pipWindowRef.current.close();
+      pipWindowRef.current = null;
+      setPipActive(false);
+      return;
+    }
+
+    if (typeof window !== "undefined" && (window as unknown as { documentPictureInPicture?: { requestWindow: (opts?: { width?: number; height?: number }) => Promise<Window> } }).documentPictureInPicture?.requestWindow) {
+      try {
+        const pipWin = await (window as unknown as { documentPictureInPicture: { requestWindow: (opts?: { width?: number; height?: number }) => Promise<Window> } }).documentPictureInPicture.requestWindow({
+          width: 480,
+          height: 540,
+        });
+
+        pipWin.document.title = "JSONote — Floating Mini-Editor";
+        pipWin.document.body.style.margin = "0";
+        pipWin.document.body.style.padding = "10px";
+        pipWin.document.body.style.background = "#0f172a";
+        pipWin.document.body.style.color = "#f8fafc";
+        pipWin.document.body.style.boxSizing = "border-box";
+
+        pipWin.document.body.innerHTML = `
+          <div style="display:flex; flex-direction:column; height:calc(100vh - 20px); gap:8px; font-family:system-ui,-apple-system,sans-serif;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid #334155;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-weight:bold; font-size:13px; color:#38bdf8;">📌 JSONote Mini</span>
+                <span id="pip-status" style="font-size:10px; padding:2px 6px; border-radius:99px; background:#065f46; color:#34d399; font-weight:bold;">Valid</span>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button id="pip-format" style="background:#0284c7; color:white; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">⚡ Format</button>
+                <button id="pip-copy" style="background:#334155; color:white; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">📋 Copy</button>
+              </div>
+            </div>
+            <textarea id="pip-text" style="flex:1; width:100%; background:#020617; color:#f8fafc; border:1px solid #334155; border-radius:8px; padding:10px; font-family:monospace; font-size:12px; resize:none; outline:none; box-sizing:border-box; line-height:1.5;"></textarea>
+            <div style="font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">
+              <span>⚡ Live two-way sync with main JSONote</span>
+              <span id="pip-lines">0 lines</span>
+            </div>
+          </div>
+        `;
+
+        const textarea = pipWin.document.getElementById("pip-text") as HTMLTextAreaElement;
+        const formatBtn = pipWin.document.getElementById("pip-format");
+        const copyBtn = pipWin.document.getElementById("pip-copy");
+        const statusBadge = pipWin.document.getElementById("pip-status");
+        const linesSpan = pipWin.document.getElementById("pip-lines");
+
+        if (textarea) {
+          textarea.value = json;
+          if (linesSpan) linesSpan.innerText = `${json.split("\n").length} lines`;
+
+          textarea.oninput = (e) => {
+            const val = (e.target as HTMLTextAreaElement).value;
+            setJson(val);
+            if (linesSpan) linesSpan.innerText = `${val.split("\n").length} lines`;
+            try {
+              JSON.parse(val);
+              if (statusBadge) {
+                statusBadge.innerText = "Valid";
+                statusBadge.style.background = "#065f46";
+                statusBadge.style.color = "#34d399";
+              }
+            } catch {
+              if (statusBadge) {
+                statusBadge.innerText = "Invalid";
+                statusBadge.style.background = "#881337";
+                statusBadge.style.color = "#fda4af";
+              }
+            }
+          };
+        }
+
+        if (formatBtn) {
+          formatBtn.onclick = () => {
+            try {
+              const parsed = JSON.parse(textarea.value);
+              const formatted = JSON.stringify(parsed, null, 2);
+              textarea.value = formatted;
+              setJson(formatted);
+              if (linesSpan) linesSpan.innerText = `${formatted.split("\n").length} lines`;
+              if (statusBadge) {
+                statusBadge.innerText = "Valid";
+                statusBadge.style.background = "#065f46";
+                statusBadge.style.color = "#34d399";
+              }
+              toast.success("Formatted in floating window!");
+            } catch {
+              toast.error("Invalid JSON syntax");
+            }
+          };
+        }
+
+        if (copyBtn) {
+          copyBtn.onclick = async () => {
+            await copyText(textarea.value);
+            copyBtn.innerText = "✓ Copied";
+            setTimeout(() => {
+              if (copyBtn) copyBtn.innerText = "📋 Copy";
+            }, 1500);
+          };
+        }
+
+        pipWindowRef.current = pipWin;
+        setPipActive(true);
+
+        pipWin.onunload = () => {
+          pipWindowRef.current = null;
+          setPipActive(false);
+        };
+      } catch (err) {
+        console.warn("Document Picture-in-Picture window launch failed, enabling floating widget", err);
+        setFloatingWidgetOpen(true);
+      }
+    } else {
+      setFloatingWidgetOpen((current) => !current);
+    }
+  };
+
+  const handleQuerySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportName.trim() || !supportEmail.trim() || !supportMessage.trim()) {
+      toast.error("Please fill in your name, email, and query message.");
+      return;
+    }
+
+    const snippet = supportIncludeJson ? json.slice(0, 1200) : undefined;
+    const refId = `Q-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const mailSubject = encodeURIComponent(`[JSONote Query #${refId}] ${supportSubject || supportCategory}`);
+    const mailBodyText = `Name: ${supportName}
+Email: ${supportEmail}
+Category: ${supportCategory}
+Ref ID: #${refId}
+
+Query Details:
+${supportMessage}
+
+${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
+
+    const encodedBody = encodeURIComponent(mailBodyText);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${mailSubject}&body=${encodedBody}`;
+
+    setQueryRefId(refId);
+    setQuerySubmitted(true);
+
+    // Open Gmail Web Compose directly in Chrome/browser (bypasses macOS Mail app!)
+    window.open(gmailUrl, "_blank");
+    toast.success(`Query #${refId} registered! Opening Gmail Web Compose...`);
+  };
+
+  const handleCallbackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!callbackPhone.trim()) {
+      toast.error("Please enter your phone number for callback.");
+      return;
+    }
+    setCallbackSubmitted(true);
+    toast.success("Callback request submitted! We will call you at your preferred time.");
+  };
+
+  const resetSupportForms = () => {
+    setQuerySubmitted(false);
+    setCallbackSubmitted(false);
+    setSupportSubject("");
+    setSupportMessage("");
+    setCallbackPhone("");
+  };
   const [sortOpen, setSortOpen] = useState(false);
   const [sortTargetKey, setSortTargetKey] = useState<string | null>(null);
   const [sortField, setSortField] = useState("");
@@ -618,7 +873,20 @@ export default function Index() {
   const workspace = workspaces.find((item) => item.id === workspaceId) || workspaces[0];
   const documents = workspaceDocuments[workspaceId] || [];
   const lineCount = useMemo(() => json.split("\n").length, [json]);
-  const diffRows = useMemo(() => diffLines(json, compareJson), [compareJson, json]);
+  const normalizedJsons = useMemo(() => {
+    try {
+      const leftParsed = JSON.parse(json);
+      const rightParsed = JSON.parse(compareJson);
+      return {
+        left: JSON.stringify(leftParsed, null, 2),
+        right: JSON.stringify(rightParsed, null, 2),
+      };
+    } catch {
+      return { left: json, right: compareJson };
+    }
+  }, [compareJson, json]);
+
+  const diffRows = useMemo(() => diffLines(normalizedJsons.left, normalizedJsons.right), [normalizedJsons]);
   const changedRows = useMemo(() => diffRows.filter((row) => row.status !== "same"), [diffRows]);
   const diffStatuses = useMemo(() => lineStatusMaps(diffRows), [diffRows]);
   const differences = useMemo(() => {
@@ -629,6 +897,54 @@ export default function Index() {
     }
   }, [compareJson, json]);
   const pathDiffs = differences ?? [];
+
+  const compareValidity = useMemo(() => {
+    let leftValid = true;
+    let rightValid = true;
+    try {
+      JSON.parse(json);
+    } catch {
+      leftValid = false;
+    }
+    try {
+      JSON.parse(compareJson);
+    } catch {
+      rightValid = false;
+    }
+    return { leftValid, rightValid, bothValid: leftValid && rightValid };
+  }, [compareJson, json]);
+
+  const autoFixCompareSyntax = () => {
+    let repairedLeft = json;
+    let repairedRight = compareJson;
+    let leftRepaired = false;
+    let rightRepaired = false;
+
+    if (!compareValidity.leftValid) {
+      const res = repairJson(json);
+      if (res.repaired) {
+        repairedLeft = res.value;
+        leftRepaired = true;
+      }
+    }
+
+    if (!compareValidity.rightValid) {
+      const res = repairJson(compareJson);
+      if (res.repaired) {
+        repairedRight = res.value;
+        rightRepaired = true;
+      }
+    }
+
+    if (leftRepaired) updateJson(repairedLeft);
+    if (rightRepaired) setCompareJson(repairedRight);
+
+    if (leftRepaired || rightRepaired) {
+      toast.success("Auto-fixed JSON syntax and formatted comparison");
+    } else {
+      toast.error("Could not auto-fix syntax — check brackets manually.");
+    }
+  };
 
   const createWorkspace = () => {
     const name = workspaceDraft.trim();
@@ -648,8 +964,17 @@ export default function Index() {
   };
 
   const saveDocument = () => {
+    // Automatically format & auto-repair JSON first upon save
+    let finalJson = json;
+    const result = repairJson(json);
+    if (!result.error) {
+      finalJson = result.value;
+      setJson(result.value);
+      setStatus("valid");
+    }
+
     const name = documentName.trim() || "untitled.json";
-    const record = { name, content: json, updated: "Just now" };
+    const record = { name, content: finalJson, updated: "Just now" };
     setWorkspaceDocuments((current) => {
       const currentDocuments = current[workspaceId] || [];
       const existing = activeDocumentKey ? currentDocuments.findIndex((document) => document.name === activeDocumentKey) : -1;
@@ -658,16 +983,38 @@ export default function Index() {
     });
     setActiveDocumentKey(name);
     setDocumentName(name);
+
+    toast.success("Saved to workspace", {
+      description: "JSON formatted and saved to your workspace.",
+    });
     setFormatMessage("Saved to My documents");
     setActiveSection("current");
   };
 
   const switchWorkspace = (id: number) => {
+    // Save current notes for current workspace & document
+    const currentKey = `${workspaceId}:${documentName}`;
+    setDocumentNotes((all) => ({ ...all, [currentKey]: notes }));
+
     setWorkspaceId(id);
     setWorkspaceMenuOpen(false);
-    setActiveDocumentKey(null);
-    setDocumentName("untitled.json");
-    setJson("{\n  \n}");
+
+    const targetDocs = workspaceDocuments[id] || [];
+    if (targetDocs.length > 0) {
+      const firstDoc = targetDocs[0];
+      setActiveDocumentKey(firstDoc.name);
+      setDocumentName(firstDoc.name);
+      setJson(firstDoc.content);
+      const targetKey = `${id}:${firstDoc.name}`;
+      setNotes(documentNotes[targetKey] || (firstDoc.name === "northstar-api.json" ? starterNotes : []));
+    } else {
+      setActiveDocumentKey(null);
+      setDocumentName("untitled.json");
+      setJson("{\n  \n}");
+      const targetKey = `${id}:untitled.json`;
+      setNotes(documentNotes[targetKey] || []);
+    }
+
     setActiveSection("documents");
     setView("editor");
     setCompareOpen(false);
@@ -676,6 +1023,9 @@ export default function Index() {
   };
 
   const createDocument = () => {
+    const currentKey = `${workspaceId}:${documentName}`;
+    setDocumentNotes((all) => ({ ...all, [currentKey]: notes }));
+
     setActiveDocumentKey(null);
     setDocumentName("untitled.json");
     setJson("{\n  \n}");
@@ -684,9 +1034,13 @@ export default function Index() {
     setActiveSection("current");
     setView("editor");
     setCompareOpen(false);
+    setNotes([]);
   };
 
   const openDocument = (name: string, content: string) => {
+    const currentKey = `${workspaceId}:${documentName}`;
+    setDocumentNotes((all) => ({ ...all, [currentKey]: notes }));
+
     setActiveDocumentKey(name);
     setDocumentName(name);
     setJson(content);
@@ -695,6 +1049,9 @@ export default function Index() {
     setActiveSection("current");
     setView("editor");
     setCompareOpen(false);
+
+    const targetKey = `${workspaceId}:${name}`;
+    setNotes(documentNotes[targetKey] || (name === "northstar-api.json" ? starterNotes : []));
   };
 
   const updateJson = (value: string) => {
@@ -749,16 +1106,54 @@ export default function Index() {
 
   const runSchemaValidation = () => {
     try {
-      const schema = JSON.parse(schemaText);
-      const value = JSON.parse(json);
-      const result = validateAgainstSchema(schema, value);
-      setSchemaIssues(result.issues);
       setSchemaError("");
-      if (result.ok) toast.success("Document matches the schema");
-      else toast.error(`${result.issues.length} schema violation${result.issues.length === 1 ? "" : "s"} found`);
+      const parsedSchema = JSON.parse(schemaText);
+      const parsedJson = JSON.parse(json);
+      const result = validateAgainstSchema(parsedSchema, parsedJson);
+      setSchemaIssues(result.issues);
     } catch (error) {
       setSchemaIssues(null);
       setSchemaError(error instanceof Error ? error.message : "Could not run validation");
+    }
+  };
+
+  const generateSchemaFromDoc = () => {
+    try {
+      const parsed = JSON.parse(json);
+      const inferred = inferJsonSchema(parsed);
+      setSchemaText(JSON.stringify(inferred, null, 2));
+      toast.success("Generated schema from active document");
+    } catch {
+      toast.error("Document is not valid JSON — fix syntax before generating schema.");
+    }
+  };
+
+  const loadTestSchema = () => {
+    try {
+      const parsed = JSON.parse(json);
+      const inferred = inferJsonSchema(parsed) as Record<string, unknown>;
+      const required = Array.isArray(inferred.required) ? [...inferred.required, "apiKey"] : ["apiKey"];
+      const testSchema = { ...inferred, required };
+      setSchemaText(JSON.stringify(testSchema, null, 2));
+      toast.info("Loaded test schema requiring 'apiKey' field");
+    } catch {
+      setSchemaText(
+        JSON.stringify(
+          {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            required: ["name", "version", "apiKey"],
+            properties: {
+              name: { type: "string" },
+              version: { type: "string" },
+              apiKey: { type: "string" },
+            },
+          },
+          null,
+          2
+        )
+      );
+      toast.info("Loaded sample test schema requiring 'apiKey' field");
     }
   };
 
@@ -869,6 +1264,13 @@ export default function Index() {
     toast.success("History cleared for this document");
   };
 
+  const removeSingleVersion = async (version: Version) => {
+    if (version.id === undefined) return;
+    await deleteVersion(version.id).catch(() => undefined);
+    setHistoryVersions((prev) => prev.filter((item) => item.id !== version.id));
+    toast.success("Snapshot deleted from history");
+  };
+
   const versionDiffCount = (version: Version): number | null => {
     try {
       return valueDiffs(JSON.parse(version.content), JSON.parse(json)).length;
@@ -899,10 +1301,11 @@ export default function Index() {
   const exportCsv = () => {
     try {
       const csv = jsonToCsv(JSON.parse(json));
-      downloadFile(documentName.replace(/\.json$/i, "") + ".csv", csv, "text/csv");
-      toast.success("CSV downloaded", { description: "Arrays become rows; nested fields become dot-path columns." });
-    } catch {
-      toast.error("Cannot convert: the document is not valid JSON");
+      const filename = documentName.replace(/\.json$/i, "") + ".csv";
+      downloadFile(filename, csv, "text/csv");
+      toast.success(`Converted to ${filename}`);
+    } catch (error) {
+      toast.error("Could not convert to CSV", { description: error instanceof Error ? error.message : "JSON must be an object or array of objects." });
     }
   };
 
@@ -911,23 +1314,49 @@ export default function Index() {
     reader.onload = () => {
       const text = String(reader.result ?? "");
       try {
-        // A .jsonote snapshot (or any JSON tagged with our marker) restores the
-        // full shared session — document, comparison, notes — not just a doc.
+        // A .jsonote snapshot file restores full shared session (doc, compare, notes, view)
         const snapshot = parseSnapshotFile(text);
         if (snapshot) {
           restoreSnapshot(snapshot, "file");
           return;
         }
+
         if (/\.csv$/i.test(file.name)) {
-          setJson(JSON.stringify(csvToJson(text), null, 2));
-          setDocumentName(file.name.replace(/\.csv$/i, ".json"));
-          toast.success(`Converted ${file.name} to JSON`);
+          const { dataText, notes: extractedNotes } = extractCsvNotesAndData(text);
+          setJson(JSON.stringify(csvToJson(dataText), null, 2));
+          const targetName = file.name.replace(/\.csv$/i, ".json");
+          setDocumentName(targetName);
+          const key = `${workspaceId}:${targetName}`;
+
+          if (extractedNotes && extractedNotes.length > 0) {
+            setNotes(extractedNotes);
+            setDocumentNotes((all) => ({ ...all, [key]: extractedNotes }));
+            toast.success(`Imported ${file.name} — restored ${extractedNotes.length} reference note(s) & replies`);
+          } else {
+            setNotes([]);
+            setDocumentNotes((all) => ({ ...all, [key]: [] }));
+            toast.success(`Converted ${file.name} to JSON`);
+          }
         } else {
-          const result = repairJson(text);
+          // Check for embedded comments ($comments or _comments) inside exported JSON
+          const { cleanJson, notes: extractedNotes } = extractAnnotatedJsonNotes(text);
+          const result = repairJson(cleanJson);
           if (result.error) throw new Error(result.error);
+
           setJson(result.value);
-          setDocumentName(file.name.endsWith(".json") ? file.name : `${file.name}.json`);
-          toast.success(result.repaired ? `Imported and repaired ${file.name}` : `Imported ${file.name}`);
+          const targetName = file.name.endsWith(".json") ? file.name : `${file.name}.json`;
+          const key = `${workspaceId}:${targetName}`;
+
+          if (extractedNotes && extractedNotes.length > 0) {
+            setNotes(extractedNotes);
+            setDocumentNotes((all) => ({ ...all, [key]: extractedNotes }));
+            toast.success(`Imported ${file.name} — restored ${extractedNotes.length} reference note(s) & replies`);
+          } else {
+            setNotes([]);
+            setDocumentNotes((all) => ({ ...all, [key]: [] }));
+            toast.success(result.repaired ? `Imported and repaired ${file.name}` : `Imported ${file.name}`);
+          }
+          setDocumentName(targetName);
         }
         setActiveDocumentKey(null);
         setStatus("valid");
@@ -978,17 +1407,28 @@ export default function Index() {
   };
 
   const downloadJson = () => {
-    downloadFile(documentName.endsWith(".json") ? documentName : `${documentName}.json`, json);
-    toast.success(`Downloaded ${documentName.endsWith(".json") ? documentName : `${documentName}.json`}`);
+    const payload = notes.length > 0 ? embedNotesInJson(json, notes) : json;
+    const filename = documentName.trim() || "download.json";
+    downloadFile(filename, payload);
+    if (notes.length > 0) {
+      toast.success(`Downloaded ${filename} with ${notes.length} reference note(s) & replies`);
+    } else {
+      toast.success(`Downloaded ${filename}`);
+    }
   };
 
-  // Cmd+S / Ctrl+S downloads the document to disk instead of triggering the
-  // browser's "Save Page As" dialog.
+  const downloadPlainJson = () => {
+    const filename = documentName.trim() || "download.json";
+    downloadFile(filename, json);
+    toast.success(`Downloaded plain ${filename}`);
+  };
+
+  // Cmd+S / Ctrl+S formats and saves the document to workspace
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        downloadJson();
+        saveDocument();
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1026,7 +1466,12 @@ export default function Index() {
     const lineText = json.split("\n")[commentLine - 1] || "";
     const key = lineText.match(/"([^"\\]+)"\s*:/)?.[1] || `line ${commentLine}`;
     const note = { id: editingNoteId || Date.now(), title: noteTitle.trim() || "Untitled note", text: noteText.trim(), path: key, line: commentLine, mention: noteMention.trim(), color: "bg-cyan-400" };
-    setNotes((current) => editingNoteId ? current.map((item) => item.id === editingNoteId ? { ...item, ...note, color: item.color } : item) : [...current, note]);
+    setNotes((current) => {
+      const next = editingNoteId ? current.map((item) => (item.id === editingNoteId ? { ...item, ...note, color: item.color } : item)) : [...current, note];
+      const docKey = `${workspaceId}:${documentName}`;
+      setDocumentNotes((all) => ({ ...all, [docKey]: next }));
+      return next;
+    });
     setNoteTitle("");
     setNoteText("");
     setNoteMention("");
@@ -1044,14 +1489,24 @@ export default function Index() {
   };
 
   const toggleResolve = (note: Note) => {
-    setNotes((current) => current.map((item) => (item.id === note.id ? { ...item, resolved: !item.resolved } : item)));
+    setNotes((current) => {
+      const next = current.map((item) => (item.id === note.id ? { ...item, resolved: !item.resolved } : item));
+      const docKey = `${workspaceId}:${documentName}`;
+      setDocumentNotes((all) => ({ ...all, [docKey]: next }));
+      return next;
+    });
     toast.success(note.resolved ? "Reopened comment" : "Marked resolved");
   };
 
   const addReply = (noteId: number) => {
     if (!replyText.trim()) return;
     const reply: Reply = { id: Date.now(), text: replyText.trim(), mention: replyMention.trim(), at: Date.now() };
-    setNotes((current) => current.map((item) => (item.id === noteId ? { ...item, replies: [...(item.replies ?? []), reply] } : item)));
+    setNotes((current) => {
+      const next = current.map((item) => (item.id === noteId ? { ...item, replies: [...(item.replies ?? []), reply] } : item));
+      const docKey = `${workspaceId}:${documentName}`;
+      setDocumentNotes((all) => ({ ...all, [docKey]: next }));
+      return next;
+    });
     setReplyText("");
     setReplyMention("");
     setReplyingNoteId(null);
@@ -1117,18 +1572,27 @@ export default function Index() {
       }
     }
     const ok = await copyText(link);
-    if (ok) toast.success(`${label} copied to clipboard`, { description: "The whole session travels inside the link — nothing is uploaded to a server." });
+    if (ok) toast.success(`${label} copied to clipboard`, { description: `Compressed compact URL (${link.length} chars). 100% self-contained!` });
     else toast.error("Could not copy the link — check browser clipboard permissions");
+  };
+
+  const shareShortAliasLink = async (includeCompare: boolean) => {
+    const snapshot = buildSnapshot(includeCompare);
+    const alias = generateShortAlias(snapshot);
+    const link = `${window.location.origin}${window.location.pathname}#s=${alias}`;
+    await copyText(link);
+    toast.success("Copied 6-char ultra-short link!", {
+      description: `Mini link: ${link}`,
+    });
   };
 
   // Export the session as a portable snapshot file. Importing it anywhere
   // restores the document, the comparison, and the notes — and lands the
   // recipient in the diff immediately.
   const shareAsFile = (includeCompare: boolean) => {
-    const base = documentName.replace(/\.json$/i, "");
-    downloadFile(`${base}.jsonote`, serializeSnapshotFile(buildSnapshot(includeCompare)), "application/json");
+    downloadFile("download.jsonote", serializeSnapshotFile(buildSnapshot(includeCompare)), "application/json");
     toast.success("Snapshot file downloaded", {
-      description: "Share the .jsonote file — the recipient imports it to restore this exact session.",
+      description: "Share the download.jsonote file — the recipient imports it to restore this exact session.",
     });
     setMoreOpen(false);
   };
@@ -1249,15 +1713,8 @@ export default function Index() {
               ))}
             </div>}
           </div>
+          <button onClick={() => setTourOpen(true)} className="header-button bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70" title="Interactive Product Walkthrough"><Sparkles size={15} className="text-amber-500 animate-pulse" /> Take a Tour</button>
           <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "bg-slate-100 text-slate-800" : ""}`}><CircleHelp size={17} /> Help</button>
-          <div className="relative">
-            <button onClick={(event) => { event.stopPropagation(); setHeaderMenuOpen((current) => !current); }} className={`header-button ${headerMenuOpen ? "bg-slate-100 text-slate-800" : ""}`} aria-label="More options"><MoreHorizontal size={18} /></button>
-            {headerMenuOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-60 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
-              <button onClick={() => { setHelpOpen(true); setHeaderMenuOpen(false); }} className="menu-item"><CircleHelp size={15} className="text-[var(--brand)]" /> Keyboard shortcuts</button>
-              <button onClick={async () => { if (await copyText(window.location.origin)) toast.success("App link copied"); setHeaderMenuOpen(false); }} className="menu-item"><Share2 size={15} className="text-[var(--brand)]" /> Copy app link</button>
-            </div>}
-          </div>
-          <div className="ml-2 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[var(--violet-light)] to-[var(--violet-dark)] text-xs font-bold text-white">AV</div>
         </div>
       </header>
 
@@ -1297,33 +1754,96 @@ export default function Index() {
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-col gap-4 border-b border-[var(--edge)] bg-white px-5 py-4 xl:flex-row xl:items-center xl:justify-between xl:px-7">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm text-slate-400"><FileJson2 size={16} /> {workspace.name} <span>/</span> {activeSection === "documents" ? "My documents" : "Workspace"} <span>/</span> <input aria-label="Document name" value={documentName} onChange={(event) => setDocumentName(event.target.value)} className="min-w-0 max-w-[220px] truncate bg-transparent font-semibold text-slate-700 outline-none focus:border-b focus:border-[var(--brand)]" /></div>
-              <div className="mt-1.5 flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /><span className={`text-xs font-semibold ${status === "valid" ? "text-emerald-600" : "text-rose-600"}`}>{status === "valid" ? "Valid JSON" : "Invalid JSON"}</span>{formatMessage ? <span className="text-xs font-semibold text-[var(--brand)]">{formatMessage}</span> : <span className="text-xs text-slate-400">Click Format to repair common mistakes</span>}</div>
+          <div className="flex flex-col gap-4 border-b border-[var(--edge)] bg-white px-5 py-3.5 xl:flex-row xl:items-center xl:justify-between xl:px-7">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                <span className="flex items-center gap-1 font-medium text-slate-500">
+                  <FileJson2 size={15} className="text-[var(--brand)]" />
+                  {workspace.name}
+                </span>
+                <span className="text-slate-300">/</span>
+                <span className="font-medium text-slate-500">{activeSection === "documents" ? "My documents" : "Workspace"}</span>
+                <span className="text-slate-300">/</span>
+                <div className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/80 px-2 py-0.5 transition-all hover:border-[var(--brand-border)] hover:bg-white focus-within:border-[var(--brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--brand-ring)]" title="Click to rename document">
+                  <input
+                    aria-label="Document name"
+                    value={documentName}
+                    onChange={(event) => setDocumentName(event.target.value)}
+                    className="min-w-0 max-w-[200px] truncate bg-transparent font-semibold text-slate-800 outline-none"
+                    placeholder="Document name"
+                  />
+                  <Pencil size={12} className="shrink-0 text-slate-400 opacity-60 group-hover:opacity-100" />
+                </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                {status === "valid" ? (
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                    </span>
+                    Valid JSON
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-rose-50/80 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-xs">
+                    <AlertCircle size={13} className="shrink-0 text-rose-600" />
+                    Invalid JSON
+                  </div>
+                )}
+
+                {formatMessage ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--brand)]">
+                    <Sparkles size={13} /> {formatMessage}
+                  </span>
+                ) : status === "invalid" ? (
+                  <span className="text-xs font-medium text-rose-500">Click Format to auto-repair malformed structure</span>
+                ) : (
+                  <span className="text-xs text-slate-400">Click Format to repair & pretty-print</span>
+                )}
+              </div>
             </div>
+
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={saveDocument} className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]"><Check size={16} /> Save</button>
-              <button onClick={formatJson} className="tool-button"><WandSparkles size={16} /> Format</button>
-              <button onClick={() => setCompareOpen((current) => !current)} className={`tool-button ${compareOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`}><GitCompare size={16} /> Compare</button>
-              <button onClick={openHistory} className="tool-button"><HistoryIcon size={16} /> History</button>
-              <button onClick={minifyJson} className="tool-button"><Code2 size={16} /> Minify</button>
-              <button onClick={() => shareLink(compareOpen)} className="tool-button"><Share2 size={16} /> Share</button>
+              <button onClick={saveDocument} title="Save Document to Workspace" className="tool-button">
+                <Check size={16} /> Save
+              </button>
+              <button onClick={formatJson} title="Format & Auto-Repair JSON (pretty-print)" className="tool-button">
+                <WandSparkles size={16} /> Format
+              </button>
+              <button onClick={() => setCompareOpen((current) => !current)} title="Compare with another document" className={`tool-button ${compareOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`}>
+                <GitCompare size={16} /> Compare
+              </button>
+              <button onClick={openHistory} title="View Revision History" className="tool-button">
+                <HistoryIcon size={16} /> History
+              </button>
+              <button onClick={minifyJson} title="Minify JSON payload" className="tool-button">
+                <Code2 size={16} /> Minify
+              </button>
+              <button onClick={() => shareLink(compareOpen)} title="Copy compressed URL snapshot link (contains JSON + Notes + Diffs)" className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)] font-bold shadow-2xs hover:bg-[var(--brand)] hover:text-white transition-all active:scale-95">
+                <Camera size={16} /> Share Snapshot
+              </button>
               <input ref={fileInputRef} type="file" accept=".json,.jsonote,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
               <div className="relative">
-                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`} aria-label="More tools"><MoreHorizontal size={16} /> More</button>
-                {moreOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
-                  <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
-                  <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
-                  <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[var(--brand)]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
-                  <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json</button>
-                  <button onClick={() => shareAsFile(compareOpen)} className="menu-item"><Share2 size={15} className="text-[var(--brand)]" /> Share as file<span className="menu-hint">.jsonote session</span></button>
-                  <div className="my-1 border-t border-[var(--edge-soft)]" />
-                  <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[var(--brand)]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
-                  <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[var(--brand)]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
-                  <button onClick={() => { setCodegenOpen(true); setMoreOpen(false); if (!codegenOutput) runCodegen(); }} className="menu-item"><FileCode2 size={15} className="text-[var(--brand)]" /> Generate code<span className="menu-hint">TS, Python, Go…</span></button>
-                  <button onClick={() => { setConvertOpen(true); setMoreOpen(false); setConvertDirection("to"); setTimeout(runConvert, 0); }} className="menu-item"><FileJson2 size={15} className="text-[var(--brand)]" /> Convert format<span className="menu-hint">YAML · XML · TOML</span></button>
-                </div>}
+                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`} aria-label="More tools">
+                  <MoreHorizontal size={16} /> More
+                </button>
+                {moreOpen && (
+                  <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
+                    <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
+                    <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
+                    <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[var(--brand)]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
+                    <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json{notes.length > 0 && <span className="menu-hint">with comments</span>}</button>
+                    {notes.length > 0 && (
+                      <button onClick={() => { downloadPlainJson(); setMoreOpen(false); }} className="menu-item"><FileText size={15} className="text-[var(--brand)]" /> Download plain .json<span className="menu-hint">without comments</span></button>
+                    )}
+                    <div className="my-1 border-t border-[var(--edge-soft)]" />
+                    <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[var(--brand)]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
+                    <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[var(--brand)]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
+                    <button onClick={() => { setCodegenOpen(true); setMoreOpen(false); if (!codegenOutput) runCodegen(); }} className="menu-item"><FileCode2 size={15} className="text-[var(--brand)]" /> Generate code<span className="menu-hint">TS, Python, Go…</span></button>
+                    <button onClick={() => { setConvertOpen(true); setMoreOpen(false); setConvertDirection("to"); setTimeout(runConvert, 0); }} className="menu-item"><FileJson2 size={15} className="text-[var(--brand)]" /> Convert format<span className="menu-hint">YAML · XML · TOML</span></button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1352,34 +1872,105 @@ export default function Index() {
           )}
 
           <div className="flex flex-1 flex-col gap-5 p-4 lg:flex-row lg:p-6">
-            <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-250px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
+            <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-130px)] min-h-[580px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
               {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group min-w-0 rounded-xl border border-[var(--edge)] p-4 text-left transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[var(--brand)]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[var(--brand)]" /></div><p className="mt-5 truncate text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
-              {compareOpen && changedRows.length > 0 && <div className="absolute bottom-0 left-0 right-0 z-30 max-h-44 overflow-auto border-t border-[var(--edge)] bg-white/95 p-3 shadow-[0_-8px_25px_rgba(23,32,51,0.08)]"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-700">Line changes <span className="ml-1 font-normal text-slate-400">{changedRows.length}</span></p><span className="text-[10px] text-slate-400">Click to jump in both panes</span></div><div className="space-y-1">{changedRows.map((row, index) => <button key={`${row.leftLine}-${row.rightLine}-${index}`} onClick={() => jumpToCompareLine(row.leftLine ?? row.rightLine ?? 1, row.rightLine ?? row.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[var(--edge-soft)] bg-white p-2 text-left text-[11px] hover:border-[var(--brand-border)] sm:grid-cols-[88px_1fr_1fr]"><span className="font-mono font-bold text-[var(--brand)]">{row.status === "added" ? `+ L${row.rightLine}` : row.status === "removed" ? `− L${row.leftLine}` : `L${row.leftLine} → L${row.rightLine}`}</span><span className={`truncate ${row.status === "added" ? "text-slate-300" : "text-rose-600"}`}>{row.status === "added" ? "—" : `− ${row.leftText.trim() || '""'}`}</span><span className={`truncate ${row.status === "removed" ? "text-slate-300" : "text-emerald-600"}`}>{row.status === "removed" ? "—" : `+ ${row.rightText.trim() || '""'}`}</span></button>)}</div></div>}
-              {compareOpen && <div className="absolute inset-0 z-10 flex flex-col bg-white">
-                <div className="flex flex-wrap items-center gap-3 border-b border-[var(--edge)] px-5 py-3">
-                  <div className="min-w-[200px] flex-1"><p className="text-sm font-bold text-slate-700">Compare JSON</p><p className="mt-1 text-xs text-slate-400">Both sides are editable — changes highlight live. <span className="rounded bg-amber-100 px-1">changed</span> <span className="rounded bg-rose-100 px-1">removed</span> <span className="rounded bg-emerald-100 px-1">added</span></p></div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={copyReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Copy size={14} /> Copy report</button>
-                    <button onClick={exportReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Download size={14} /> Export report</button>
-                    <button onClick={() => shareLink(true)} className="tool-button h-8 shrink-0 whitespace-nowrap border-[var(--brand-border)] bg-[var(--brand-soft)] px-2.5 text-[11px] text-[var(--brand)]"><Share2 size={14} /> Share comparison</button>
-                    <button onClick={() => setCompareOpen(false)} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button>
+              {compareOpen && (
+                <div className="absolute inset-0 z-10 flex flex-col bg-white">
+                  <div className="flex flex-wrap items-center gap-3 border-b border-[var(--edge)] px-5 py-3">
+                    <div className="min-w-[200px] flex-1">
+                      <p className="text-sm font-bold text-slate-700">Compare JSON</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Both sides are editable — changes highlight live. <span className="rounded bg-amber-100 px-1">changed</span> <span className="rounded bg-rose-100 px-1">removed</span> <span className="rounded bg-emerald-100 px-1">added</span>
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={copyReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Copy size={14} /> Copy report</button>
+                      <button onClick={exportReport} className="tool-button h-8 shrink-0 whitespace-nowrap px-2.5 text-[11px]"><Download size={14} /> Export report</button>
+                      <button onClick={() => shareLink(true)} className="tool-button h-8 shrink-0 whitespace-nowrap border-[var(--brand-border)] bg-[var(--brand-soft)] px-2.5 text-[11px] text-[var(--brand)]"><Share2 size={14} /> Share comparison</button>
+                      <button onClick={() => setCompareOpen(false)} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close compare"><X size={16} /></button>
+                    </div>
+                  </div>
+                  <div className="grid flex-1 gap-4 overflow-auto p-4 pb-8 xl:grid-cols-2">
+                    <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--edge)]">
+                      <div className="flex items-center justify-between border-b border-[var(--edge)] px-4 py-2.5 text-xs font-bold text-slate-600">
+                        <span>Current JSON — {documentName}</span>
+                        {!compareValidity.leftValid && (
+                          <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Syntax error</span>
+                        )}
+                      </div>
+                      <ComparePane value={json} onChange={updateJson} statuses={diffStatuses.left} editorRef={compareCurrentRef} ariaLabel="Current JSON comparison" />
+                    </div>
+                    <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--brand-border)]">
+                      <div className="flex items-center justify-between border-b border-[var(--brand-soft-border)] bg-[var(--brand-soft-hover)] px-4 py-2.5 text-xs font-bold text-[var(--brand)]">
+                        <span>Compare with</span>
+                        {!compareValidity.rightValid && (
+                          <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Syntax error</span>
+                        )}
+                      </div>
+                      <ComparePane value={compareJson} onChange={setCompareJson} statuses={diffStatuses.right} editorRef={compareRef} ariaLabel="Compare JSON" />
+                    </div>
+                    <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4 xl:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-700">
+                          Differences Breakdown
+                          <span className="ml-2 text-xs font-normal text-slate-400">Click any row to jump directly to it in both editor panes</span>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${!compareValidity.bothValid ? "border-rose-200 bg-rose-50 text-rose-700" : pathDiffs.length ? "border-amber-200/80 bg-amber-50 text-amber-700" : "border-emerald-200/80 bg-emerald-50 text-emerald-700"}`}>
+                            {!compareValidity.bothValid
+                              ? !compareValidity.leftValid && !compareValidity.rightValid
+                                ? "Both documents have syntax errors"
+                                : !compareValidity.leftValid
+                                ? "Current JSON has syntax errors"
+                                : "Compared JSON has syntax errors"
+                              : pathDiffs.length
+                              ? `${pathDiffs.filter((d) => d.kind === "changed").length} changed · ${pathDiffs.filter((d) => d.kind === "added").length} added · ${pathDiffs.filter((d) => d.kind === "removed").length} removed`
+                              : "No changes"}
+                          </span>
+                          {!compareValidity.bothValid && (
+                            <button onClick={autoFixCompareSyntax} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition-all hover:bg-rose-700 active:scale-95">
+                              <WandSparkles size={13} /> Auto-fix syntax & format
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {pathDiffs.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {pathDiffs.map((difference) => {
+                            const targetRow = changedRows.find((row) => row.leftText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`) || row.rightText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`));
+                            const lineInfo = targetRow ? (targetRow.leftLine ? `L${targetRow.leftLine}` : `L${targetRow.rightLine}`) : "";
+                            return (
+                              <button
+                                key={difference.path}
+                                onClick={() => targetRow && jumpToCompareLine(targetRow.leftLine ?? targetRow.rightLine ?? 1, targetRow.rightLine ?? targetRow.leftLine ?? 1)}
+                                className="grid w-full items-center gap-3 rounded-xl border border-slate-200/80 bg-white p-3 text-left text-xs transition-all hover:border-[var(--brand-border)] hover:bg-slate-50/80 sm:grid-cols-[75px_65px_1fr_1fr_1fr]"
+                              >
+                                <span className={`rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide ${difference.kind === "added" ? "bg-emerald-50 text-emerald-700" : difference.kind === "removed" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+                                  {difference.kind}
+                                </span>
+                                <span className="font-mono text-[11px] font-bold text-slate-400">{lineInfo ? `${lineInfo}` : ""}</span>
+                                <span className="break-all font-mono font-semibold text-[var(--brand)]">{difference.path}</span>
+                                <span className="break-all font-mono text-[11px] text-rose-600">− {difference.before}</span>
+                                <span className="break-all font-mono text-[11px] text-emerald-600">+ {difference.after}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-xs text-slate-400">
+                          {!compareValidity.bothValid
+                            ? !compareValidity.leftValid && !compareValidity.rightValid
+                              ? "Fix syntax errors on both sides (or hit Format) to see path-level differences."
+                              : !compareValidity.leftValid
+                              ? "Fix syntax errors in Current JSON (or hit Format) to see path-level differences."
+                              : "Fix syntax errors in Compared JSON (or hit Format) to see path-level differences."
+                            : "The two JSON documents match perfectly."}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="grid flex-1 gap-4 overflow-auto p-4 pb-48 xl:grid-cols-2">
-                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--edge)]">
-                    <div className="border-b border-[var(--edge)] px-4 py-2.5 text-xs font-bold text-slate-600">Current JSON — {documentName}</div>
-                    <ComparePane value={json} onChange={updateJson} statuses={diffStatuses.left} editorRef={compareCurrentRef} ariaLabel="Current JSON comparison" />
-                  </div>
-                  <div className="flex min-h-[340px] flex-col overflow-hidden rounded-xl border border-[var(--brand-border)]">
-                    <div className="border-b border-[var(--brand-soft-border)] bg-[var(--brand-soft-hover)] px-4 py-2.5 text-xs font-bold text-[var(--brand)]">Compare with</div>
-                    <ComparePane value={compareJson} onChange={setCompareJson} statuses={diffStatuses.right} editorRef={compareRef} ariaLabel="Compare JSON" />
-                  </div>
-                  <div className="xl:col-span-2 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
-                    <div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">Differences by path <span className="ml-2 text-xs font-normal text-slate-400">Click a row to jump to it in both panes</span></p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${pathDiffs.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{pathDiffs.length ? `${pathDiffs.filter((d) => d.kind === "changed").length} changed · ${pathDiffs.filter((d) => d.kind === "added").length} added · ${pathDiffs.filter((d) => d.kind === "removed").length} removed` : differences === null ? "Invalid JSON" : "No changes"}</span></div>
-                    {pathDiffs.length > 0 ? <div className="mt-3 space-y-2">{pathDiffs.map((difference) => { const targetRow = changedRows.find((row) => row.leftText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`) || row.rightText.includes(`"${difference.path.split(".").pop()?.replace(/\[\d+\]/, "")}"`)); return <button key={difference.path} onClick={() => targetRow && jumpToCompareLine(targetRow.leftLine ?? targetRow.rightLine ?? 1, targetRow.rightLine ?? targetRow.leftLine ?? 1)} className="grid w-full gap-2 rounded-lg border border-[var(--edge-soft)] bg-white p-3 text-left text-xs transition hover:border-[var(--brand-border)] sm:grid-cols-[64px_1fr_1fr_1fr]"><span className={`self-start rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase ${difference.kind === "added" ? "bg-emerald-50 text-emerald-700" : difference.kind === "removed" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{difference.kind}</span><span className="break-all font-mono font-semibold text-[var(--brand)]">{difference.path}</span><span className="break-all text-rose-600">− {difference.before}</span><span className="break-all text-emerald-600">+ {difference.after}</span></button>; })}</div> : <p className="mt-3 text-xs text-slate-400">{differences === null ? "One side is not valid JSON — fix the syntax (or hit Format) to see path-level differences. Line changes still highlight above." : "The two JSON documents match."}</p>}
-                  </div>
-                </div>
-              </div>}
+              )}
               <div className="flex items-center justify-between border-b border-[var(--edge)] px-5 py-3">
                 <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button><button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button><button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button><button onClick={() => { setView("graph"); setCompareOpen(false); }} className={view === "graph" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Graph</button></div>
                 <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
@@ -1416,7 +2007,7 @@ export default function Index() {
                       </div>
                     </div>
                   </div>
-                </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
+                </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} onUpdateJson={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
                 {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
                 {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
@@ -1432,63 +2023,179 @@ export default function Index() {
                   <button onClick={() => { setRightCollapsed(false); openCommentComposer(); }} className="rounded-lg p-2 text-[var(--brand)] transition hover:bg-[var(--brand-soft)]" aria-label="Add reference note" title="Add reference note"><MessageSquarePlus size={18} /></button>
                 </div>
               ) : (
-                <aside style={{ width: rightWidth }} className="flex h-[calc(100vh-250px)] min-h-[480px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-                  <aside className="flex h-[calc(100vh-250px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-              <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
-                <div className="flex items-center justify-between"><div><p className="text-base font-bold tracking-[-0.025em]">Reference notes</p><p className="mt-1 text-xs text-slate-400">Context for future you.</p></div><div className="flex items-center gap-2"><span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)]">{notes.length}</span><button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse notes panel" title="Collapse notes panel"><PanelRightClose size={16} /></button></div></div>
-                <div className="relative mt-4"><Search size={15} className="absolute left-3 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--violet-dark)]" /></div>
-                <div className="mt-3 flex items-center gap-1">
-                  {([["all", "All", notes.length], ["open", "Open", openNoteCount], ["resolved", "Resolved", notes.length - openNoteCount]] as const).map(([value, label, count]) => (
-                    <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${noteFilter === value ? "bg-[var(--brand)] text-white" : "bg-[var(--surface-soft)] text-slate-500 hover:text-[var(--brand)]"}`}>{label} {count}</button>
-                  ))}
-                  {notes.length > 0 && <button onClick={exportReview} className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-slate-500 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]" title="Export review as markdown"><Download size={12} /> Review</button>}
-                </div>
-              </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
-                {visibleNotes.map((note) => editingNoteId === note.id ? (
-                  <div key={note.id} className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]"><Pencil size={12} /> Editing comment on line {commentLine}</div>
-                    <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-400" />
-                    <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 text-slate-600 outline-none placeholder:text-slate-400" />
-                    <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
-                    <div className="mt-2 flex justify-end gap-2">
-                      <button onClick={() => { setEditingNoteId(null); setNoteTitle(""); setNoteText(""); setNoteMention(""); }} className="text-xs font-semibold text-slate-500">Cancel</button>
-                      <button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">Update note</button>
+                <aside style={{ width: rightWidth }} className="flex h-[calc(100vh-130px)] min-h-[580px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
+                  <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-base font-bold tracking-[-0.025em] text-slate-800">Reference notes</p>
+                        <p className="mt-1 text-xs text-slate-400">Context for future you.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)] shadow-2xs">
+                          {notes.length}
+                        </span>
+                        <button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse notes panel" title="Collapse notes panel">
+                          <PanelRightClose size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative mt-4">
+                      <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes…" className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)]" />
+                    </div>
+                    <div className="mt-3 flex items-center gap-1">
+                      {([["all", "All", notes.length], ["open", "Open", openNoteCount], ["resolved", "Resolved", notes.length - openNoteCount]] as const).map(([value, label, count]) => (
+                        <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${noteFilter === value ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)]"}`}>
+                          {label} {count}
+                        </button>
+                      ))}
+                      {notes.length > 0 && (
+                        <button onClick={exportReview} className="ml-auto flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-500 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]" title="Export review as markdown">
+                          <Download size={12} /> Review
+                        </button>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <article key={note.id} className={`group relative rounded-xl border p-4 transition hover:shadow-sm ${note.resolved ? "border-[var(--edge-soft)] bg-[var(--surface-soft)] opacity-70" : "border-[var(--edge-soft)]"}`}>
-                    <span className={`absolute left-0 top-4 h-8 w-1 rounded-r ${note.resolved ? "bg-emerald-400" : note.color}`} />
-                    <div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex">
-                      <button onClick={(event) => { event.stopPropagation(); toggleResolve(note); }} className={`rounded p-1 hover:bg-slate-100 ${note.resolved ? "text-emerald-600" : "text-slate-400"}`} aria-label={note.resolved ? "Reopen" : "Resolve"} title={note.resolved ? "Reopen" : "Mark resolved"}><CircleCheck size={14} /></button>
-                      <button onClick={(event) => { event.stopPropagation(); setReplyingNoteId(replyingNoteId === note.id ? null : note.id); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Reply" title="Reply"><ReplyIcon size={13} /></button>
-                      <button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Edit note"><Pencil size={13} /></button>
-                      <button onClick={(event) => { event.stopPropagation(); setNotes((current) => current.filter((item) => item.id !== note.id)); }} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Remove note"><X size={14} /></button>
-                    </div>
-                    <p className={`cursor-pointer pl-2 text-sm font-bold text-slate-700 ${note.resolved ? "line-through decoration-slate-400" : ""}`} onClick={() => jumpToNote(note)}>{note.title}{note.resolved && <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase text-emerald-700 no-underline">Resolved</span>}</p>
-                    <p className="mt-2 pl-2 text-xs leading-5 text-slate-500">{note.text}</p>
-                    {note.mention && <p className="mt-2 pl-2 text-[10px] font-bold text-[var(--brand)]">Mentioned: @{note.mention}</p>}
-                    {note.replies && note.replies.length > 0 && (
-                      <div className="mt-3 space-y-2 border-l-2 border-[var(--edge-soft)] pl-3">
-                        {note.replies.map((reply) => (
-                          <div key={reply.id} className="flex items-start gap-1.5 text-xs text-slate-500"><CornerDownRight size={12} className="mt-0.5 shrink-0 text-slate-300" /><span>{reply.mention && <span className="font-bold text-[var(--brand)]">@{reply.mention} </span>}{reply.text}</span></div>
-                        ))}
-                      </div>
+
+                  <div className="min-h-0 flex-1 space-y-3.5 overflow-auto p-4">
+                    {visibleNotes.map((note) =>
+                      editingNoteId === note.id ? (
+                        <div key={note.id} className="rounded-2xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4 shadow-sm">
+                          <div className="mb-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]">
+                            <Pencil size={12} /> Editing comment on line {commentLine}
+                          </div>
+                          <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400" />
+                          <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 text-slate-600 outline-none placeholder:text-slate-400" />
+                          <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
+                          <div className="mt-3 flex justify-end gap-2">
+                            <button onClick={() => { setEditingNoteId(null); setNoteTitle(""); setNoteText(""); setNoteMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors">
+                              Cancel
+                            </button>
+                            <button onClick={addNote} className="rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 transition-all flex items-center gap-1.5 cursor-pointer">
+                              <Check size={13} /> Update note
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <article key={note.id} className={`group relative overflow-hidden rounded-2xl border transition-all hover:shadow-md ${note.resolved ? "border-slate-200/70 bg-slate-50/70 opacity-75" : "border-slate-200 bg-white"}`}>
+                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${note.resolved ? "bg-emerald-400" : note.color || "bg-amber-400"}`} />
+
+                          <div className="p-4 pl-4.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <p className={`cursor-pointer text-sm font-bold text-slate-800 transition hover:text-[var(--brand)] ${note.resolved ? "line-through decoration-slate-400" : ""}`} onClick={() => jumpToNote(note)}>
+                                    {note.title}
+                                  </p>
+                                  {note.resolved && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-2xs">
+                                      <CircleCheck size={11} /> Resolved
+                                    </span>
+                                  )}
+                                </div>
+                                {note.mention && (
+                                  <div className="mt-1.5">
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/80 bg-teal-50/80 px-2 py-0.5 text-[11px] font-bold text-teal-800 shadow-2xs">
+                                      <AtSign size={11} className="text-teal-600" />
+                                      {note.mention}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/80 p-0.5 opacity-80 transition group-hover:opacity-100">
+                                <button onClick={(event) => { event.stopPropagation(); toggleResolve(note); }} className={`rounded-md p-1.5 transition ${note.resolved ? "bg-emerald-100 text-emerald-700 font-bold" : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-700"}`} aria-label={note.resolved ? "Reopen" : "Resolve"} title={note.resolved ? "Reopen note" : "Mark resolved"}>
+                                  <CircleCheck size={14} />
+                                </button>
+                                <button onClick={(event) => { event.stopPropagation(); setReplyingNoteId(replyingNoteId === note.id ? null : note.id); }} className={`rounded-md p-1.5 transition ${replyingNoteId === note.id ? "bg-teal-100 text-teal-800 font-bold shadow-2xs" : "text-slate-400 hover:bg-teal-50 hover:text-teal-700"}`} aria-label="Reply" title="Reply to thread">
+                                  <ReplyIcon size={13} />
+                                </button>
+                                <button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700" aria-label="Edit note" title="Edit note">
+                                  <Pencil size={13} />
+                                </button>
+                                <button onClick={(event) => { event.stopPropagation(); setNotes((current) => { const next = current.filter((item) => item.id !== note.id); const docKey = `${workspaceId}:${documentName}`; setDocumentNotes((all) => ({ ...all, [docKey]: next })); return next; }); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Remove note" title="Delete note">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="mt-2.5 text-xs leading-5 text-slate-600">{note.text}</p>
+
+                            {note.replies && note.replies.length > 0 && (
+                              <div className="mt-3.5 space-y-2 border-l-2 border-slate-200/80 pl-3">
+                                {note.replies.map((reply) => (
+                                  <div key={reply.id} className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 shadow-2xs">
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                                      <CornerDownRight size={12} className="shrink-0 text-slate-400" />
+                                      <span>
+                                        {reply.mention && (
+                                          <span className="inline-flex items-center gap-0.5 font-bold text-[var(--brand)]">
+                                            @{reply.mention}{" "}
+                                          </span>
+                                        )}
+                                        {reply.text}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {replyingNoteId === note.id && (
+                              <div className="mt-3 rounded-2xl border border-teal-200 bg-slate-50/90 p-3 shadow-sm ring-2 ring-teal-500/10">
+                                <textarea autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…" className="min-h-14 w-full resize-none bg-transparent text-xs leading-5 text-slate-700 outline-none placeholder:text-slate-400" />
+                                <input value={replyMention} onChange={(event) => setReplyMention(event.target.value)} placeholder="Mention (optional)" className="mt-1 w-full border-b border-slate-200 bg-transparent py-1 text-xs outline-none placeholder:text-slate-400 focus:border-teal-500" />
+                                <div className="mt-2.5 flex justify-end gap-2">
+                                  <button onClick={() => { setReplyingNoteId(null); setReplyText(""); setReplyMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors">
+                                    Cancel
+                                  </button>
+                                  <button onClick={() => addReply(note.id)} className="rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 transition-all flex items-center gap-1.5 cursor-pointer">
+                                    <ReplyIcon size={13} /> Reply
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <button onClick={() => jumpToNote(note)} className="mt-3.5 flex w-full items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-1.5 text-xs font-semibold transition-all hover:border-[var(--brand-border)] hover:bg-white hover:shadow-2xs group">
+                              <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-[var(--brand)]">
+                                <Code2 size={13} className="text-[var(--brand)]" />
+                                {note.path}
+                              </span>
+                              <span className="flex items-center gap-1 font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400 transition-colors group-hover:text-[var(--brand)]">
+                                Line {note.line}
+                                <ChevronDown size={13} className="-rotate-90 transition-transform group-hover:translate-x-0.5" />
+                              </span>
+                            </button>
+                          </div>
+                        </article>
+                      )
                     )}
-                    {replyingNoteId === note.id && (
-                      <div className="mt-3 rounded-lg border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-2">
-                        <textarea autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…" className="min-h-12 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" />
-                        <input value={replyMention} onChange={(event) => setReplyMention(event.target.value)} placeholder="Mention (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1 text-xs outline-none placeholder:text-slate-400" />
-                        <div className="mt-2 flex justify-end gap-2"><button onClick={() => { setReplyingNoteId(null); setReplyText(""); setReplyMention(""); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={() => addReply(note.id)} className="rounded-md bg-[var(--brand)] px-2.5 py-1 text-xs font-bold text-white">Reply</button></div>
+
+                    {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
+
+                    {showComposer && !editingNoteId ? (
+                      <div className="rounded-2xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4 shadow-sm">
+                        <div className="mb-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]">
+                          <MessageSquare size={13} /> Comment on line {commentLine}
+                        </div>
+                        <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-slate-400" />
+                        <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" />
+                        <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
+                        <div className="mt-3 flex justify-end gap-2">
+                          <button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors">
+                            Cancel
+                          </button>
+                          <button onClick={addNote} className="rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 transition-all flex items-center gap-1.5 cursor-pointer">
+                            <Check size={13} /> {editingNoteId ? "Update note" : "Save note"}
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--brand-border)] bg-[var(--brand-soft)]/40 py-3.5 text-xs font-bold text-[var(--brand)] transition-all hover:bg-[var(--brand-soft)] hover:shadow-2xs active:scale-[0.99]">
+                        <MessageSquarePlus size={16} /> Add reference note
+                      </button>
                     )}
-                    <div className="mt-3 flex cursor-pointer items-center gap-1.5 pl-2 font-mono text-[10px] text-[var(--brand)]" onClick={() => jumpToNote(note)}><ChevronDown size={12} /> {note.path} <span className="ml-auto font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400">Jump to line</span></div>
-                  </article>
-                ))}
-                {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
-                {showComposer && !editingNoteId ? <div className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-3"><div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]"><MessageSquare size={13} /> Comment on line {commentLine}</div><input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400" /><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 outline-none placeholder:text-slate-400" /><input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-2 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" /><div className="mt-2 flex justify-end gap-2"><button onClick={() => { setShowComposer(false); setEditingNoteId(null); }} className="text-xs font-semibold text-slate-500">Cancel</button><button onClick={addNote} className="rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-xs font-bold text-white">{editingNoteId ? "Update note" : "Save note"}</button></div></div> : <button onClick={() => openCommentComposer()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--brand-border)] py-3 text-sm font-bold text-[var(--brand)] transition hover:bg-[var(--brand-soft-hover)]"><MessageSquarePlus size={16} /> Add reference note</button>}
-              </div>
-            </aside>
+                  </div>
                 </aside>
               )}
             </div>
@@ -1496,24 +2203,612 @@ export default function Index() {
         </div>
       </section>
 
-      {helpOpen && (
-        <div onClick={() => setHelpOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Keyboard shortcuts</p><button onClick={() => setHelpOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
-            <div className="mt-4 space-y-2 text-sm">
-              {[
-                ["Save / download JSON", "⌘ S / Ctrl S"],
-                ["Format document", "Format button"],
-                ["Find / replace in editor", "⌘ F / Ctrl F"],
-                ["Fold or unfold a block", "click the ▾ / ▸ arrow"],
-                ["Undo / redo", "⌘ Z / Ctrl Z"],
-                ["Add comment on a line", "right-click the line"],
-              ].map(([label, keys]) => (
-                <div key={label} className="flex items-center justify-between border-b border-[var(--edge-soft)] pb-2 last:border-0">
-                  <span className="text-slate-600">{label}</span>
-                  <span className="rounded-md bg-[var(--brand-soft-hover)] px-2 py-1 font-mono text-xs font-semibold text-[var(--brand)]">{keys}</span>
+      {/* Modern Developer-Focused Footer */}
+      <footer className="relative overflow-hidden border-t border-[var(--edge)] bg-[var(--surface-soft)] text-slate-600 dark:text-slate-400">
+        <div className="relative z-10 mx-auto max-w-7xl px-6 py-12 lg:px-12">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-5">
+            {/* Brand Column */}
+            <div className="space-y-4 md:col-span-2">
+              <div className="flex items-center gap-2">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-white shadow-md">
+                  <Braces size={20} />
+                </span>
+                <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                  JSONote
+                </span>
+                <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--brand)]">
+                  BETA
+                </span>
+              </div>
+              <p className="max-w-sm text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                A fast, secure, and 100% client-side JSON editor, formatter, and line-annotation tool designed for modern engineering teams.
+              </p>
+              <div className="flex items-center gap-2 pt-1 text-xs text-slate-500">
+                <span>Made with <Heart size={13} className="inline fill-rose-500 text-rose-500" /> for developers worldwide</span>
+              </div>
+              {/* Communication Links */}
+              <div className="flex items-center gap-2 pt-2">
+                {[
+                  { icon: Mail, label: "Direct Email", href: "https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry" },
+                  { icon: MessageCircle, label: "WhatsApp Support", href: "https://wa.me/919398548188" },
+                  { icon: Phone, label: "Direct Call", href: "tel:+919398548188" },
+                ].map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    title={item.label}
+                    className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--edge)] bg-white text-slate-500 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:bg-[var(--surface)] dark:text-slate-300"
+                  >
+                    <item.icon size={15} />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Features Column */}
+            <div className="space-y-3 text-xs">
+              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Product Features</h5>
+              <ul className="space-y-2 text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => setView("editor")} className="hover:text-[var(--brand)]">JSON Editor & Formatter</button></li>
+                <li><button onClick={() => setView("tree")} className="hover:text-[var(--brand)]">Interactive Tree View</button></li>
+                <li><button onClick={() => setView("graph")} className="hover:text-[var(--brand)]">Visual Node Graph</button></li>
+                <li><button onClick={() => setCompareOpen(true)} className="hover:text-[var(--brand)]">Side-by-Side Compare</button></li>
+                <li><button onClick={() => setSchemaOpen(true)} className="hover:text-[var(--brand)]">JSON Schema Generator</button></li>
+                <li><button onClick={() => setCodegenOpen(true)} className="hover:text-[var(--brand)]">Multi-Language Codegen</button></li>
+              </ul>
+            </div>
+
+            {/* Tools & Conversions Column */}
+            <div className="space-y-3 text-xs">
+              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Tools & Conversions</h5>
+              <ul className="space-y-2 text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => { setConvertFormatId("yaml"); setConvertOpen(true); }} className="hover:text-[var(--brand)]">JSON to YAML Converter</button></li>
+                <li><button onClick={() => { setConvertFormatId("xml"); setConvertOpen(true); }} className="hover:text-[var(--brand)]">JSON to XML Converter</button></li>
+                <li><button onClick={() => { setConvertFormatId("toml"); setConvertOpen(true); }} className="hover:text-[var(--brand)]">JSON to TOML Converter</button></li>
+                <li><button onClick={() => formatJson()} className="hover:text-[var(--brand)]">Auto-Repair Broken JSON</button></li>
+                <li><button onClick={() => setSortOpen(true)} className="hover:text-[var(--brand)]">Sort Keys & Values</button></li>
+                <li><button onClick={() => shareLink(compareOpen)} className="hover:text-[var(--brand)]">Session Snapshot Link</button></li>
+              </ul>
+            </div>
+
+            {/* Connect & Support Column */}
+            <div className="space-y-3 text-xs">
+              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Connect & Support</h5>
+              <ul className="space-y-2 text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => { setHelpTab("query"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Submit a Query</button></li>
+                <li><button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Get in Touch</button></li>
+                <li><button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Shortcuts & FAQ</button></li>
+                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">chennadvp7799@gmail.com</a></li>
+                <li><a href="https://wa.me/919398548188" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">+91 9398548188</a></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Copyright Bar */}
+          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-[var(--edge-soft)] pt-6 text-xs text-slate-400 sm:flex-row">
+            <p>© {new Date().getFullYear()} JSONote. All rights reserved. 100% Client-side privacy.</p>
+            <div className="flex items-center gap-4 text-[11px]">
+              <button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Client-Side Privacy</button>
+              <span>•</span>
+              <button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Direct Support</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Large Subtle Background Watermark */}
+        <div className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 select-none text-[70px] font-black tracking-widest text-slate-200/40 dark:text-slate-800/20 sm:text-[110px] md:text-[140px]">
+          JSONote
+        </div>
+      </footer>
+
+      {/* Product Walkthrough / Tour Modal */}
+      {tourOpen && (
+        <div onClick={() => setTourOpen(false)} className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92vh] w-[94vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
+            <div className="flex items-center justify-between border-b border-[var(--edge)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+                  <Sparkles size={22} />
                 </div>
-              ))}
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">JSONote Features Walkthrough</h3>
+                  <p className="text-xs text-slate-400">Explore core features designed for high-productivity JSON editing and review.</p>
+                </div>
+              </div>
+              <button onClick={() => setTourOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 overflow-auto pr-1 sm:grid-cols-2 md:grid-cols-3">
+              {/* Feature 1 */}
+              <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-[var(--brand)]">
+                    <WandSparkles size={16} /> 1. Smart Editor & Repair
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Real-time syntax validation, line numbers, error markers, and 1-click auto-repair for trailing commas & unquoted keys.
+                  </p>
+                </div>
+                <button onClick={() => { formatJson(); setTourOpen(false); }} className="mt-4 tool-button w-full justify-center text-[var(--brand)]">
+                  Try Auto-Repair
+                </button>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-violet-600 dark:text-violet-400">
+                    <MessageSquarePlus size={16} /> 2. Line Notes & @Mentions
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Right-click any line in the JSON editor to attach reference notes, tag team members with `@mention`, and thread replies without corrupting raw JSON.
+                  </p>
+                </div>
+                <button onClick={() => { openCommentComposer(); setTourOpen(false); }} className="mt-4 tool-button w-full justify-center text-violet-600 dark:text-violet-400">
+                  Add Line Note
+                </button>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-teal-600 dark:text-teal-400">
+                    <GitCompare size={16} /> 3. Side-by-Side Diffs
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Compare two JSON documents side-by-side to highlight added, modified, and deleted keys instantly.
+                  </p>
+                </div>
+                <button onClick={() => { setCompareOpen(true); setTourOpen(false); }} className="mt-4 tool-button w-full justify-center text-teal-600 dark:text-teal-400">
+                  Open Compare
+                </button>
+              </div>
+
+              {/* Feature 4 */}
+              <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400">
+                    <TableIcon size={16} /> 4. Tree & Node Graph
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Interactive hierarchy tree and visual SVG node graph where you can zoom, edit, and add/delete properties live.
+                  </p>
+                </div>
+                <button onClick={() => { setView("graph"); setTourOpen(false); }} className="mt-4 tool-button w-full justify-center text-sky-600 dark:text-sky-400">
+                  View Node Graph
+                </button>
+              </div>
+
+              {/* Feature 5 */}
+              <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <FileCode2 size={16} /> 5. Schema & Codegen
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Infer Draft-07 JSON Schema and generate type-safe code across TypeScript, Go, Python, Java, C#, Rust, and Swift.
+                  </p>
+                </div>
+                <button onClick={() => { setCodegenOpen(true); setTourOpen(false); runCodegen(); }} className="mt-4 tool-button w-full justify-center text-amber-600 dark:text-amber-400">
+                  Generate Code
+                </button>
+              </div>
+
+              {/* Feature 6 */}
+              <div className="flex flex-col justify-between rounded-xl border border-amber-300 bg-amber-50/60 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                    <Camera size={16} /> 6. Session Snapshots
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Share your entire workspace (JSON payload + all line notes + replies + compare diffs) via a compressed URL `#s=` link or `.jsonote` file.
+                  </p>
+                </div>
+                <button onClick={() => { shareLink(compareOpen); setTourOpen(false); }} className="mt-4 rounded-lg bg-[var(--brand)] py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]">
+                  Copy Share Snapshot
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between border-t border-[var(--edge-soft)] pt-4">
+              <span className="text-xs text-slate-400">🔒 100% Client-Side Privacy — Data never leaves your browser.</span>
+              <button onClick={() => setTourOpen(false)} className="rounded-lg bg-[var(--brand)] px-5 py-2 text-xs font-bold text-white hover:bg-[var(--brand-hover)]">
+                Got it, let's edit!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {helpOpen && (
+        <div onClick={() => setHelpOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[92vh] w-[94vw] max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--edge)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                  <CircleHelp size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">Help & Support Center</h3>
+                  <p className="text-xs text-slate-400">Ask a question, submit feedback, or connect directly with our team.</p>
+                </div>
+              </div>
+              <button onClick={() => setHelpOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="mt-4 flex border-b border-[var(--edge)]">
+              <button
+                onClick={() => setHelpTab("query")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition border-b-2 ${helpTab === "query" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}
+              >
+                <MessageSquarePlus size={15} /> Submit Query
+              </button>
+              <button
+                onClick={() => setHelpTab("contact")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition border-b-2 ${helpTab === "contact" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}
+              >
+                <Phone size={15} /> Get in Touch
+              </button>
+              <button
+                onClick={() => setHelpTab("faq")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition border-b-2 ${helpTab === "faq" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}
+              >
+                <Code2 size={15} /> Shortcuts & FAQ
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="mt-4 min-h-0 flex-1 overflow-auto pr-1">
+              {helpTab === "query" && (
+                querySubmitted ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+                      <CircleCheck size={36} />
+                    </div>
+                    <h4 className="mt-4 text-base font-bold text-slate-800 dark:text-white">Query Registered & Email Prepared!</h4>
+                    <p className="mt-1 max-w-md text-xs text-slate-500">
+                      Reference ID: <span className="font-mono font-bold text-[var(--brand)]">#{queryRefId}</span>. Destination Email:
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white px-3 py-1.5 font-mono text-xs font-bold text-slate-800 dark:bg-[var(--surface-soft)] dark:text-slate-200">
+                      <Mail size={14} className="text-[var(--brand)]" />
+                      <span>chennadvp7799@gmail.com</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await copyText("chennadvp7799@gmail.com");
+                          toast.success("Copied email to clipboard!");
+                        }}
+                        className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-sans font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                      >
+                        <Copy size={11} className="inline mr-1" /> Copy
+                      </button>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                      <a
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${encodeURIComponent(`[JSONote Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-4 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
+                      >
+                        <Send size={14} /> Open Gmail Web
+                      </a>
+                      <a
+                        href={`mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(`[JSONote Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        className="tool-button"
+                      >
+                        Open Mail App
+                      </a>
+                      <button onClick={resetSupportForms} className="tool-button">Submit another query</button>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleQuerySubmit} className="space-y-4">
+                    <div className="rounded-lg border border-[var(--brand-border)] bg-[var(--brand-soft)] p-2.5 text-xs text-[var(--brand)]">
+                      ℹ️ Queries are prefilled and sent to <span className="font-mono font-bold underline">chennadvp7799@gmail.com</span>.
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Your Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={supportName}
+                          onChange={(e) => setSupportName(e.target.value)}
+                          placeholder="e.g. Chenna Kumar"
+                          className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          value={supportEmail}
+                          onChange={(e) => setSupportEmail(e.target.value)}
+                          placeholder="name@company.com"
+                          className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Query Category</label>
+                        <select
+                          value={supportCategory}
+                          onChange={(e) => setSupportCategory(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white"
+                        >
+                          <option value="General Query">General Query</option>
+                          <option value="Bug Report">Bug Report</option>
+                          <option value="Feature Request">Feature Request</option>
+                          <option value="Enterprise / API Inquiry">Enterprise / API Inquiry</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Subject</label>
+                        <input
+                          type="text"
+                          value={supportSubject}
+                          onChange={(e) => setSupportSubject(e.target.value)}
+                          placeholder="Brief summary of your question"
+                          className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Query Details / Message *</label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={supportMessage}
+                        onChange={(e) => setSupportMessage(e.target.value)}
+                        placeholder="Describe your issue or question in detail..."
+                        className="mt-1 w-full resize-none rounded-lg border border-[var(--edge)] bg-white p-3 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={supportIncludeJson}
+                        onChange={(e) => setSupportIncludeJson(e.target.checked)}
+                        className="rounded border-[var(--edge)] text-[var(--brand)] focus:ring-0"
+                      />
+                      <span>Attach current JSON document snippet for faster diagnosis (sanitized)</span>
+                    </label>
+
+                    <button
+                      type="submit"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white transition hover:bg-[var(--brand-hover)] active:scale-[0.99]"
+                    >
+                      <Send size={16} /> Submit Query
+                    </button>
+                  </form>
+                )
+              )}
+
+              {helpTab === "contact" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* Email Option */}
+                    <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
+                            <Mail size={18} className="text-[var(--brand)]" /> Direct Email Support
+                          </div>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">Send an email directly to our engineering team.</p>
+
+                        <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1.5 text-xs dark:bg-[var(--surface)]">
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200">chennadvp7799@gmail.com</span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await copyText("chennadvp7799@gmail.com");
+                              toast.success("Copied email to clipboard!");
+                            }}
+                            className="tool-button px-2 py-1 text-[10px]"
+                          >
+                            <Copy size={11} /> Copy
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <a
+                          href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
+                        >
+                          <Send size={13} /> Open Gmail Web
+                        </a>
+                        <a
+                          href="mailto:chennadvp7799@gmail.com?subject=JSONote%20Inquiry"
+                          className="flex items-center justify-center gap-1 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:bg-[var(--surface)] dark:text-slate-200"
+                        >
+                          <Mail size={13} /> Mail App
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* WhatsApp Option */}
+                    <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
+                          <MessageCircle size={18} className="text-emerald-500" /> WhatsApp Support
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">Connect directly on WhatsApp for real-time developer help.</p>
+
+                        <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1.5 text-xs dark:bg-[var(--surface)]">
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200">+91 9398548188</span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await copyText("9398548188");
+                              toast.success("Copied WhatsApp number to clipboard!");
+                            }}
+                            className="tool-button px-2 py-1 text-[10px]"
+                          >
+                            <Copy size={11} /> Copy
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <a
+                          href="https://wa.me/919398548188?text=Hi%20JSONote%20Team!%20I%20have%20a%20question%20regarding%20JSONote."
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                        >
+                          <ExternalLink size={13} /> WhatsApp Chat
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Phone Call / Callback Option */}
+                  <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
+                        <Phone size={18} className="text-sky-500" /> Direct Call & Request Callback
+                      </div>
+                      <a href="tel:+919398548188" className="tool-button px-3.5 py-1.5 text-sky-600 dark:text-sky-400">
+                        <Phone size={13} /> Call +91 9398548188
+                      </a>
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Call us directly at <span className="font-mono font-bold text-slate-700 dark:text-slate-300">+91 9398548188</span> or leave your number below for a scheduled callback.
+                    </p>
+
+                    {callbackSubmitted ? (
+                      <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700 dark:border-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        ✓ Callback request received! We will call you at your preferred time window ({callbackTime}).
+                      </div>
+                    ) : (
+                      <form onSubmit={handleCallbackSubmit} className="mt-3 space-y-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Your Phone Number *</label>
+                            <input
+                              type="tel"
+                              required
+                              value={callbackPhone}
+                              onChange={(e) => setCallbackPhone(e.target.value)}
+                              placeholder="+91 90000 00000"
+                              className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-1.5 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Preferred Time Window</label>
+                            <select
+                              value={callbackTime}
+                              onChange={(e) => setCallbackTime(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-1.5 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-white"
+                            >
+                              <option value="Morning (9 AM - 12 PM)">Morning (9 AM - 12 PM)</option>
+                              <option value="Afternoon (12 PM - 5 PM)">Afternoon (12 PM - 5 PM)</option>
+                              <option value="Evening (5 PM - 8 PM)">Evening (5 PM - 8 PM)</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button type="submit" className="tool-button w-full justify-center text-sky-600 dark:text-sky-400">
+                          <Clock size={13} /> Request Callback
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {helpTab === "faq" && (
+                <div className="space-y-4">
+                  {/* Why JSONote & Differentiation */}
+                  <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                    <h5 className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white">
+                      <Sparkles size={16} className="text-[var(--brand)]" /> Why JSONote? What Makes It Different?
+                    </h5>
+                    <div className="mt-3 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">🔒 100% Client-Side Privacy</p>
+                        <p className="mt-0.5 text-slate-500">Unlike typical formatters that transmit your confidential JSON payloads to remote servers, JSONote executes all formatting, auto-repair, schema validation, and graph generation 100% locally in your browser.</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">💬 Contextual Line Notes & @Mentions</p>
+                        <p className="mt-0.5 text-slate-500">Right-click any line in the JSON editor to attach reference notes, tag team members with `@mention`, and thread replies without corrupting or altering the raw JSON payload structure.</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">⚡ Side-by-Side Diffs & Session Snapshots</p>
+                        <p className="mt-0.5 text-slate-500">Compare JSON documents with color-coded diff highlights, and share your entire session (including diffs and comments) via compressed URL links or portable `.jsonote` files.</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">🛠️ Auto-Repair, Schema & Code Generation</p>
+                        <p className="mt-0.5 text-slate-500">Auto-fix trailing commas, unquoted keys, single quotes, and missing brackets in 1 click. Infer Draft-07 JSON Schemas and generate type-safe code across TypeScript, Go, Python, Java, C#, Rust, and Swift.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Core Use Cases */}
+                  <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                    <h5 className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white">
+                      <Braces size={16} className="text-teal-600" /> Core Developer Use Cases
+                    </h5>
+                    <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs text-slate-600 dark:text-slate-300">
+                      <div className="rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">1. API Response Debugging</p>
+                        <p className="mt-1 text-slate-500">Quickly format, search, filter via JSONPath, and inspect deep nested API payloads.</p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">2. Config Comparison</p>
+                        <p className="mt-1 text-slate-500">Diff production vs staging environments side-by-side to detect missing keys instantly.</p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">3. Team Payload Review</p>
+                        <p className="mt-1 text-slate-500">Annotate payload lines with notes and replies before sharing with frontend or backend engineers.</p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">4. Clean Format Conversion</p>
+                        <p className="mt-1 text-slate-500">Convert JSON to/from clean CSV and YAML without corrupting data or injecting header metadata.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keyboard Shortcuts */}
+                  <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                    <h5 className="text-xs font-bold text-slate-800 dark:text-white">Keyboard Shortcuts Matrix</h5>
+                    <div className="mt-3 space-y-2 text-xs">
+                      {[
+                        ["Save / download JSON document", "⌘ S / Ctrl S"],
+                        ["Format & auto-repair JSON", "Format button"],
+                        ["Find & replace in editor", "⌘ F / Ctrl F"],
+                        ["Fold or unfold JSON block", "click the ▾ / ▸ arrow"],
+                        ["Undo / redo edit action", "⌘ Z / Ctrl Z"],
+                        ["Add reference note / comment on line", "Right-click line in editor"],
+                        ["Switch between Editor / Tree / Graph", "Click top tab bar"],
+                      ].map(([label, keys]) => (
+                        <div key={label} className="flex items-center justify-between border-b border-[var(--edge-soft)] pb-2 last:border-0">
+                          <span className="text-slate-600 dark:text-slate-300">{label}</span>
+                          <span className="rounded-md bg-[var(--brand-soft)] px-2 py-1 font-mono text-[11px] font-semibold text-[var(--brand)]">{keys}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1558,11 +2853,19 @@ export default function Index() {
 
       {schemaOpen && (
         <div onClick={() => setSchemaOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[90vh] w-[92vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Validate against JSON Schema</p><button onClick={() => setSchemaOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Paste a JSON Schema (draft-07 or newer) — validation runs entirely in your browser, nothing is uploaded.</p>
-            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-40 w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3 font-mono text-xs outline-none focus:border-[var(--brand-border)]" />
-            <button onClick={runSchemaValidation} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white"><ShieldCheck size={16} /> Validate current document</button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button onClick={generateSchemaFromDoc} className="tool-button h-8 px-2.5 text-xs text-[var(--brand)]">
+                <WandSparkles size={13} /> Auto-generate schema from document
+              </button>
+              <button onClick={loadTestSchema} className="tool-button h-8 px-2.5 text-xs text-slate-600">
+                <FileCode2 size={13} /> Load test schema with errors
+              </button>
+            </div>
+            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-[320px] md:h-[380px] w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3.5 font-mono text-xs leading-5 outline-none focus:border-[var(--brand-border)]" />
+            <button onClick={runSchemaValidation} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[var(--brand-hover)] active:scale-[0.99]"><ShieldCheck size={16} /> Validate current document</button>
             {schemaError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{schemaError}</div>}
             {schemaIssues && (
               <div className="mt-3 min-h-0 flex-1 overflow-auto">
@@ -1661,8 +2964,15 @@ export default function Index() {
         <div onClick={() => setHistoryOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
           <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <div><p className="text-lg font-bold text-slate-800">Version history</p><p className="mt-0.5 text-xs text-slate-400">{documentName} · saved on-device as you edit</p></div>
+              <div>
+                <p className="text-lg font-bold text-slate-800">Version history</p>
+                <p className="mt-0.5 text-xs text-slate-400">{documentName} · 30-day retention sweet spot (local)</p>
+              </div>
               <button onClick={() => setHistoryOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-teal-200/80 bg-teal-50/70 px-3.5 py-2 text-xs font-semibold text-teal-800">
+              <span className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-teal-600" /> Retention Sweet Spot: Versions from the last 30 days (up to 30 snapshots) are kept locally.</span>
+              <span className="font-bold">{historyVersions.length}/30</span>
             </div>
             <div className="mt-4 min-h-0 flex-1 overflow-auto">
               {historyVersions.length === 0 ? (
@@ -1673,7 +2983,7 @@ export default function Index() {
                     const changes = versionDiffCount(version);
                     const isCurrent = index === 0 && version.content === json;
                     return (
-                      <div key={version.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--edge)] p-3">
+                      <div key={version.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--edge)] p-3 transition-colors hover:border-slate-300">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-slate-700">{relativeTime(version.savedAt)}</span>
@@ -1681,12 +2991,17 @@ export default function Index() {
                           </div>
                           <p className="mt-0.5 text-[11px] text-slate-400">{new Date(version.savedAt).toLocaleString()} · {(version.size / 1024).toFixed(1)} KB · {version.content.split("\n").length} lines{changes !== null && !isCurrent ? ` · ${changes} value${changes === 1 ? "" : "s"} differ from current` : ""}</p>
                         </div>
-                        {!isCurrent && (
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => compareVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><GitCompare size={13} /> Compare</button>
-                            <button onClick={() => restoreVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><RotateCcw size={13} /> Restore</button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {!isCurrent && (
+                            <>
+                              <button onClick={() => compareVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><GitCompare size={13} /> Compare</button>
+                              <button onClick={() => restoreVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><RotateCcw size={13} /> Restore</button>
+                            </>
+                          )}
+                          <button onClick={() => removeSingleVersion(version)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Delete this snapshot" title="Delete this version">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1694,10 +3009,41 @@ export default function Index() {
               )}
             </div>
             {historyVersions.length > 0 && (
-              <div className="mt-3 flex justify-end border-t border-[var(--edge-soft)] pt-3">
+              <div className="mt-3 flex items-center justify-between border-t border-[var(--edge-soft)] pt-3">
+                <span className="text-[11px] text-slate-400 font-medium">Older versions auto-expire after 30 days.</span>
                 <button onClick={clearDocHistory} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"><Trash2 size={14} /> Clear history</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* In-Page Floating Mini-Editor Overlay Widget */}
+      {floatingWidgetOpen && (
+        <div className="fixed bottom-6 right-6 z-[80] flex h-[380px] w-[340px] flex-col rounded-2xl border border-slate-700 bg-slate-900 p-3 text-white shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400">
+              <PictureInPicture size={15} /> Floating Mini-Editor
+              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${status === "valid" ? "bg-emerald-950 text-emerald-400" : "bg-rose-950 text-rose-400"}`}>
+                {status === "valid" ? "Valid" : "Invalid"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => formatJson()} className="rounded px-2 py-0.5 text-[10px] font-bold bg-sky-600 text-white hover:bg-sky-500">Format</button>
+              <button onClick={() => setFloatingWidgetOpen(false)} className="rounded p-1 text-slate-400 hover:bg-slate-800" aria-label="Close"><X size={14} /></button>
+            </div>
+          </div>
+
+          <textarea
+            value={json}
+            onChange={(e) => setJson(e.target.value)}
+            className="mt-2 flex-1 w-full rounded-lg border border-slate-800 bg-slate-950 p-2.5 font-mono text-xs text-slate-100 outline-none resize-none focus:border-sky-500"
+            placeholder="Paste or edit JSON..."
+          />
+
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+            <span>⚡ Synced live with main editor</span>
+            <span>{json.split("\n").length} lines</span>
           </div>
         </div>
       )}

@@ -36,6 +36,7 @@
     --edge-soft: #eef0f5;
     --ink: #172033;
     --brand: #0f766e;
+    --brand-hover: #0d655e;
     --brand-border: #9ed3c8;
     --brand-soft: #e6f7f4;
     --brand-soft-hover: #f4fbfa;
@@ -93,6 +94,7 @@
     --edge-soft: #232830;
     --ink: #e6e9f0;
     --brand: #2dd4bf;
+    --brand-hover: #14b8a6;
     --brand-border: #1f5f57;
     --brand-soft: #103733;
     --brand-soft-hover: #14403b;
@@ -187,4 +189,18 @@
   .dark .text-sky-600 { color: #38bdf8; }
   .dark .text-blue-600 { color: #60a5fa; }
   .dark .hover\:text-blue-800:hover { color: #93c5fd; }
+
+  /* Additional dark mode utility mappings for inputs, borders, and select controls */
+  .dark select option { background-color: var(--surface); color: var(--ink); }
+  .dark input, .dark select, .dark textarea { color-scheme: dark; }
+  .dark .border-slate-200 { border-color: var(--edge); }
+  .dark .border-slate-100 { border-color: var(--edge-soft); }
+  .dark .border-slate-300 { border-color: var(--edge); }
+  .dark .border-slate-400 { border-color: var(--edge); }
+  .dark .bg-slate-200 { background-color: var(--edge); }
+  .dark .bg-slate-300 { background-color: var(--edge); }
+  .dark .text-slate-900 { color: var(--ink); }
+  .dark .border-gray-200 { border-color: var(--edge); }
+  .dark .bg-gray-50 { background-color: var(--surface-soft); }
+  .dark .bg-gray-100 { background-color: var(--edge-soft); }
 }

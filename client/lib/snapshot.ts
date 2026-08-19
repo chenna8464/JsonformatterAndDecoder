@@ -1,4 +1,4 @@
-import { gzipSync, Gunzip } from "fflate";
+import { deflateSync, inflateSync, gzipSync, Gunzip } from "fflate";
 
 // A share link or snapshot file is untrusted input. Bound both the compressed
 // size and the decompressed size so a crafted "zip bomb" (a tiny payload that
@@ -74,11 +74,18 @@ const base64UrlEncode = (bytes: Uint8Array): string =>
   btoa(bytesToBinary(bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 const base64UrlDecode = (encoded: string): Uint8Array => {
-  const padded = encoded.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (encoded.length % 4)) % 4);
+  let cleaned = encoded;
+  try {
+    cleaned = decodeURIComponent(encoded);
+  } catch {
+    cleaned = encoded;
+  }
+  cleaned = cleaned.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = cleaned + "=".repeat((4 - (cleaned.length % 4)) % 4);
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 };
 
-const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
+export const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
   if (!Array.isArray(value)) return undefined;
   return value
     .filter((n): n is Record<string, unknown> => n !== null && typeof n === "object")
@@ -104,35 +111,171 @@ const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
     }));
 };
 
+/**
+ * Extracts embedded notes (comments & replies) from a JSON object if present
+ * under `$comments`, `_comments`, or `$jsonote.notes`.
+ * Returns the cleaned JSON string (without the metadata property) and the extracted notes.
+ */
+export function extractAnnotatedJsonNotes(text: string): { cleanJson: string; notes: SnapshotNote[] | null } {
+  try {
+    const obj = JSON.parse(text);
+    if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
+      return { cleanJson: text, notes: null };
+    }
+
+    const rawObj = obj as Record<string, unknown>;
+    const rawNotes = rawObj.$comments ?? rawObj._comments ?? (rawObj.$jsonote && typeof rawObj.$jsonote === "object" ? (rawObj.$jsonote as Record<string, unknown>).notes : undefined);
+    const parsedNotes = normalizeNotes(rawNotes);
+
+    if (!parsedNotes || parsedNotes.length === 0) {
+      return { cleanJson: text, notes: null };
+    }
+
+    const copy = { ...rawObj };
+    delete copy.$comments;
+    delete copy._comments;
+    delete copy.$jsonote;
+
+    return {
+      cleanJson: JSON.stringify(copy, null, 2),
+      notes: parsedNotes,
+    };
+  } catch {
+    return { cleanJson: text, notes: null };
+  }
+}
+
+/**
+ * Embeds notes (comments & replies) into a JSON object as a top-level `$comments` property
+ * for portable export.
+ */
+export function embedNotesInJson(jsonText: string, notes: SnapshotNote[]): string {
+  if (!notes || notes.length === 0) return jsonText;
+  try {
+    const obj = JSON.parse(jsonText);
+    if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
+      return jsonText;
+    }
+    const annotated = {
+      $comments: notes,
+      ...obj,
+    };
+    return JSON.stringify(annotated, null, 2);
+  } catch {
+    return jsonText;
+  }
+}
+
+const compactNotesToNotes = (t: unknown): SnapshotNote[] | undefined => {
+  if (!Array.isArray(t)) return undefined;
+  return t.map((item) => {
+    if (Array.isArray(item)) {
+      const [id, title, text, path, line, mention, color, resolved, replies] = item;
+      const note: SnapshotNote = {
+        id: typeof id === "number" ? id : Date.now(),
+        title: String(title ?? ""),
+        text: String(text ?? ""),
+        path: String(path ?? ""),
+        line: typeof line === "number" ? line : 1,
+        mention: String(mention ?? ""),
+        color: String(color ?? "bg-amber-400"),
+      };
+      if (resolved === 1 || resolved === true) note.resolved = true;
+      if (Array.isArray(replies) && replies.length > 0) {
+        note.replies = replies.map((r) => {
+          if (Array.isArray(r)) {
+            const [rId, rText, rMention, rAt] = r;
+            return {
+              id: typeof rId === "number" ? rId : Date.now(),
+              text: String(rText ?? ""),
+              mention: String(rMention ?? ""),
+              at: typeof rAt === "number" ? rAt : 0,
+            };
+          }
+          return { id: Date.now(), text: String((r as SnapshotReply)?.text ?? ""), mention: String((r as SnapshotReply)?.mention ?? ""), at: Number((r as SnapshotReply)?.at ?? 0) };
+        });
+      }
+      return note;
+    }
+    return item as SnapshotNote;
+  });
+};
+
 const coerceSnapshot = (raw: unknown): Snapshot | null => {
   if (raw === null || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
-  if (typeof obj.json !== "string") return null;
-  return {
-    v: 1,
-    name: typeof obj.name === "string" && obj.name ? obj.name : "shared.json",
-    json: obj.json,
-    compare: typeof obj.compare === "string" ? obj.compare : undefined,
-    notes: normalizeNotes(obj.notes),
-    view: (["editor", "tree", "query", "table", "graph"] as const).includes(obj.view as never) ? (obj.view as Snapshot["view"]) : undefined,
-    compareOpen: typeof obj.compareOpen === "boolean" ? obj.compareOpen : undefined,
-  };
+
+  const jsonStr = typeof obj.j === "string" ? obj.j : typeof obj.json === "string" ? obj.json : null;
+  if (jsonStr === null) return null;
+
+  const name = typeof obj.n === "string" && obj.n ? obj.n : typeof obj.name === "string" && obj.name ? obj.name : "shared.json";
+  const compare = typeof obj.c === "string" ? obj.c : typeof obj.compare === "string" ? obj.compare : undefined;
+  const notesRaw = obj.t !== undefined ? compactNotesToNotes(obj.t) : normalizeNotes(obj.notes);
+  const view = (["editor", "tree", "query", "table", "graph"] as const).includes((obj.w ?? obj.view) as never) ? ((obj.w ?? obj.view) as Snapshot["view"]) : undefined;
+  const compareOpen = typeof obj.o === "number" ? obj.o === 1 : typeof obj.compareOpen === "boolean" ? obj.compareOpen : undefined;
+
+  const result: Snapshot = { v: 1, name, json: jsonStr };
+  if (compare !== undefined) result.compare = compare;
+  if (notesRaw !== undefined) result.notes = notesRaw;
+  if (view !== undefined) result.view = view;
+  if (compareOpen !== undefined) result.compareOpen = compareOpen;
+  return result;
 };
 
-/** Serialize a snapshot to a gzip-compressed base64url string. */
+/** Serialize a snapshot to an ultra-compact raw-deflate base64url string. */
 export function encodeSnapshot(snapshot: Snapshot): string {
-  const bytes = gzipSync(new TextEncoder().encode(JSON.stringify(snapshot)));
+  const compact: Record<string, unknown> = {
+    v: 1,
+    n: snapshot.name,
+    j: snapshot.json,
+  };
+  if (snapshot.compare !== undefined) compact.c = snapshot.compare;
+  if (snapshot.notes !== undefined) {
+    compact.t = snapshot.notes.map((n) => [
+      n.id,
+      n.title,
+      n.text,
+      n.path,
+      n.line,
+      n.mention,
+      n.color,
+      n.resolved ? 1 : 0,
+      n.replies?.map((r) => [r.id, r.text, r.mention, r.at]),
+    ]);
+  }
+  if (snapshot.view !== undefined) compact.w = snapshot.view;
+  if (snapshot.compareOpen !== undefined) compact.o = snapshot.compareOpen ? 1 : 0;
+
+  const bytes = deflateSync(new TextEncoder().encode(JSON.stringify(compact)), { level: 9 });
   return base64UrlEncode(bytes);
 }
 
-/** Inverse of encodeSnapshot. Returns null on any corruption or oversized payload. */
+/** Inverse of encodeSnapshot. Supports ultra-compact raw-deflate and legacy gzip formats seamlessly. */
 export function decodeSnapshot(encoded: string): Snapshot | null {
   try {
-    const json = new TextDecoder().decode(boundedGunzip(base64UrlDecode(encoded)));
+    const bytes = base64UrlDecode(encoded);
+    let json = "";
+    try {
+      json = new TextDecoder().decode(inflateSync(bytes));
+    } catch {
+      json = new TextDecoder().decode(boundedGunzip(bytes));
+    }
     return coerceSnapshot(JSON.parse(json));
   } catch {
     return null;
   }
+}
+
+/** Generate a 6-character short local alias for quick link sharing within the browser. */
+export function generateShortAlias(snapshot: Snapshot): string {
+  const fullHash = encodeSnapshot(snapshot);
+  const alias = "s_" + Math.random().toString(36).substring(2, 8);
+  try {
+    localStorage.setItem(`jsonote_alias_${alias}`, fullHash);
+  } catch {
+    // Ignore quota errors
+  }
+  return alias;
 }
 
 /** Build a share link carrying the whole session, compressed into the URL hash. */
@@ -141,12 +284,23 @@ export function buildSnapshotLink(snapshot: Snapshot): string {
 }
 
 /**
- * Read a snapshot from a URL hash. Supports the new compressed `#s=` format and
- * the legacy uncompressed `#share=` format so old links keep working.
+ * Read a snapshot from a URL hash. Supports compact raw-deflate, short local aliases,
+ * and legacy gzip formats.
  */
 export function readSnapshotFromHash(hash: string): Snapshot | null {
-  const compressed = hash.match(/#s=([A-Za-z0-9_-]+)/);
-  if (compressed) return decodeSnapshot(compressed[1]);
+  const compressed = hash.match(/#s=([A-Za-z0-9_%+=-]+)/);
+  if (compressed) {
+    const payload = compressed[1];
+    if (payload.startsWith("s_")) {
+      try {
+        const cached = localStorage.getItem(`jsonote_alias_${payload}`);
+        if (cached) return decodeSnapshot(cached);
+      } catch {
+        // ignore
+      }
+    }
+    return decodeSnapshot(payload);
+  }
 
   const legacy = hash.match(/#share=([A-Za-z0-9_-]+)/);
   if (legacy) {

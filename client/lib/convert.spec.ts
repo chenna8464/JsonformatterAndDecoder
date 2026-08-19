@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { csvToJson, jsonToCsv, queryJson, setAtPath } from "./convert";
+import { csvToJson, extractCsvNotesAndData, jsonToCsv, queryJson, setAtPath } from "./convert";
 
 describe("jsonToCsv", () => {
   it("converts an array of objects with nested fields", () => {
@@ -33,6 +33,12 @@ describe("csvToJson", () => {
   it("round-trips with jsonToCsv", () => {
     const original = [{ name: "Ada", meta: { role: "eng" }, age: 36 }];
     expect(csvToJson(jsonToCsv(original))).toEqual(original);
+  });
+
+  it("converts JSON to clean raw CSV without comments", () => {
+    const csv = jsonToCsv([{ rateLimit: 100 }]);
+    expect(csv).toBe("rateLimit\n100");
+    expect(csvToJson(csv)).toEqual([{ rateLimit: 100 }]);
   });
 });
 
