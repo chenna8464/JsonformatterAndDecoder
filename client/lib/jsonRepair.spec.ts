@@ -173,6 +173,42 @@ describe("repairJson", () => {
     });
   });
 
+  it("repairs keys missing closing quote before colon", () => {
+    const input = `{
+  "project": {
+    "name": "Northstar API",
+    "version: "2.4.0",
+    "environment": "production"
+  }
+}`;
+    const result = repairJson(input);
+    expect(result.repaired).toBe(true);
+    expect(JSON.parse(result.value)).toEqual({
+      project: {
+        name: "Northstar API",
+        version: "2.4.0",
+        environment: "production",
+      },
+    });
+  });
+
+  it("repairs objects with missing key quotes, unclosed string values, and missing line commas", () => {
+    const input = `{
+      "name: "Update user profile",
+      "method": "PATCH
+      path": "/api/v1/users/:id
+      "auth": true
+    }`;
+    const result = repairJson(input);
+    expect(result.repaired).toBe(true);
+    expect(JSON.parse(result.value)).toEqual({
+      name: "Update user profile",
+      method: "PATCH",
+      path: "/api/v1/users/:id",
+      auth: true,
+    });
+  });
+
   it("reports an error for hopeless input", () => {
     const result = repairJson("");
     expect(result.repaired).toBe(false);

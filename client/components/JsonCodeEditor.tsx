@@ -53,6 +53,7 @@ const editorTheme = EditorView.theme({
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--cm-fold-ink)" },
   ".cm-foldPlaceholder": { backgroundColor: "var(--brand-soft)", border: "1px solid var(--brand-border)", color: "var(--brand)", borderRadius: "4px", padding: "0 6px", margin: "0 4px" },
   ".cm-selectionMatch": { backgroundColor: "var(--cm-selection-match)" },
+  ".cm-cursor": { borderLeftColor: "var(--ink)" },
 });
 
 class NoteMarker extends GutterMarker {

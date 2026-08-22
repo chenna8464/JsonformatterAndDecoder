@@ -12,6 +12,7 @@ import {
   X,
   Check,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { buildGraphModel, NODE_WIDTH, type GraphModel, type GraphNode, type GraphValueType } from "@/lib/graph";
 import { toast } from "sonner";
@@ -141,6 +142,7 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
   const [pan, setPan] = useState({ x: 40, y: 40 });
   const [zoom, setZoom] = useState(1);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const p = palettes[dark ? "dark" : "light"];
 
@@ -379,48 +381,78 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
           </div>
         )}
 
-        {/* Controls */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="rounded-md bg-white px-2.5 py-1 font-mono text-xs font-bold text-slate-600 shadow-sm dark:bg-[#161b22] dark:text-slate-300">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => setZoom((z) => Math.max(0.15, Number((z / 1.15).toFixed(2))))}
-            className="rounded-md bg-white p-1.5 text-slate-500 shadow-sm transition hover:text-[var(--brand)] dark:bg-[#161b22] dark:text-slate-300"
-            title="Zoom out (-15%)"
-            aria-label="Zoom out"
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={() => setZoom((z) => Math.min(2.5, Number((z * 1.15).toFixed(2))))}
-            className="rounded-md bg-white p-1.5 text-slate-500 shadow-sm transition hover:text-[var(--brand)] dark:bg-[#161b22] dark:text-slate-300"
-            title="Zoom in (+15%)"
-            aria-label="Zoom in"
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            onClick={() => setZoom(1)}
-            className="rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-500 shadow-sm transition hover:text-[var(--brand)] dark:bg-[#161b22] dark:text-slate-300"
-            title="Reset to 100%"
-          >
-            100%
-          </button>
-          <button
-            onClick={fit}
-            className="rounded-md bg-white p-1.5 text-slate-500 shadow-sm transition hover:text-[var(--brand)] dark:bg-[#161b22] dark:text-slate-300"
-            title="Fit to screen"
-            aria-label="Fit to screen"
-          >
-            <Maximize size={14} />
-          </button>
-          <button onClick={exportSvg} className="tool-button h-7 px-2 text-[11px]">
-            <Download size={13} /> SVG
-          </button>
-          <button onClick={exportPng} className="tool-button h-7 px-2 text-[11px]">
-            <ImageDown size={13} /> PNG
-          </button>
+        {/* Sleek Controls */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Zoom Segmented Group: [-] [50%] [+] [Fit] */}
+          <div className="flex items-center rounded-full border border-[var(--edge)] bg-white px-1 py-0.5 shadow-2xs dark:border-[#30363d] dark:bg-[#161b22]">
+            <button
+              onClick={() => setZoom((z) => Math.max(0.15, Number((z / 1.15).toFixed(2))))}
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
+              title="Zoom out (-15%)"
+              aria-label="Zoom out"
+            >
+              <Minus size={13} />
+            </button>
+            <button
+              onClick={() => setZoom(1)}
+              className="px-2 py-1 font-mono text-xs font-bold text-slate-700 transition hover:text-[var(--brand)] dark:text-slate-200"
+              title="Reset zoom to 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => setZoom((z) => Math.min(2.5, Number((z * 1.15).toFixed(2))))}
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
+              title="Zoom in (+15%)"
+              aria-label="Zoom in"
+            >
+              <Plus size={13} />
+            </button>
+            <div className="mx-1 h-3.5 w-px bg-slate-200 dark:bg-slate-800" />
+            <button
+              onClick={fit}
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
+              title="Fit graph to screen"
+              aria-label="Fit graph to screen"
+            >
+              <Maximize size={13} />
+            </button>
+          </div>
+
+          {/* Export Dropdown Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setExportMenuOpen((open) => !open)}
+              className="tool-button flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+              title="Export Graph Image"
+            >
+              <Download size={13} className="text-[var(--brand)]" />
+              <span>Export</span>
+              <ChevronDown size={12} className="text-slate-400" />
+            </button>
+
+            {exportMenuOpen && (
+              <div
+                onClick={() => setExportMenuOpen(false)}
+                className="absolute right-0 top-10 z-50 w-44 rounded-xl border border-[var(--edge)] bg-white p-1 shadow-lg dark:border-[#30363d] dark:bg-[#161b22]"
+              >
+                <button
+                  onClick={exportSvg}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"
+                >
+                  <Download size={14} className="text-[var(--brand)]" />
+                  <span>SVG Vector (.svg)</span>
+                </button>
+                <button
+                  onClick={exportPng}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"
+                >
+                  <ImageDown size={14} className="text-[var(--brand)]" />
+                  <span>PNG Image (.png)</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -155,8 +155,8 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
   if (!isBranch) {
     return (
       <div className="group flex items-center gap-2 py-1.5 font-mono text-xs" style={{ paddingLeft: depth * 20 }}>
-        <span className="font-semibold text-slate-600">{label}</span>
-        <span className="text-slate-300">:</span>
+        <span className="font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+        <span className="text-slate-400 dark:text-slate-500">:</span>
         {editing ? (
           <input
             autoFocus
@@ -167,23 +167,23 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
               if (event.key === "Enter") commit();
               if (event.key === "Escape") setEditing(false);
             }}
-            className="min-w-[120px] rounded border border-[var(--brand-border)] bg-white px-1.5 py-0.5 font-mono text-xs text-slate-700 outline-none"
+            className="min-w-[120px] rounded border border-[var(--brand-border)] bg-white px-1.5 py-0.5 font-mono text-xs text-slate-700 outline-none dark:bg-[var(--surface-soft)] dark:text-white"
           />
         ) : (
           <>
             {typeof value === "string" && /^https?:\/\/\S+$/i.test(value) ? (
-              <a href={value} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="break-all text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800" title="Open link in a new tab">"{value}"</a>
+              <a href={value} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="break-all text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 dark:text-blue-400" title="Open link in a new tab">"{value}"</a>
             ) : (
               <button
                 onClick={() => { if (onEdit) { setDraft(JSON.stringify(value)); setEditing(true); } }}
-                className={`rounded px-0.5 text-left ${typeof value === "string" ? "text-amber-600" : typeof value === "boolean" ? "text-violet-600" : "text-sky-600"} ${onEdit ? "cursor-text hover:bg-[var(--brand-soft)] hover:outline hover:outline-1 hover:outline-[var(--brand-border)]" : ""}`}
+                className={`rounded px-0.5 text-left ${typeof value === "string" ? "text-amber-600 dark:text-amber-400" : typeof value === "boolean" ? "text-violet-600 dark:text-violet-300" : "text-sky-600 dark:text-sky-400"} ${onEdit ? "cursor-text hover:bg-[var(--brand-soft)] hover:outline hover:outline-1 hover:outline-[var(--brand-border)]" : ""}`}
                 title={onEdit ? "Click to edit value" : undefined}
               >
                 {JSON.stringify(value)}
               </button>
             )}
 
-            {onEdit && <button onClick={() => { setDraft(JSON.stringify(value)); setEditing(true); }} className="hidden text-slate-300 hover:text-[var(--brand)] group-hover:block" aria-label="Edit value"><Pencil size={11} /></button>}
+            {onEdit && <button onClick={() => { setDraft(JSON.stringify(value)); setEditing(true); }} className="hidden text-slate-400 hover:text-[var(--brand)] dark:text-slate-500 group-hover:block" aria-label="Edit value"><Pencil size={11} /></button>}
           </>
         )}
       </div>
@@ -192,10 +192,10 @@ function JsonTree({ label, value, depth = 0, path = [], onEdit, openDepth = 2 }:
 
   return (
     <div>
-      <button onClick={() => setOpen((current) => !current)} className="flex items-center gap-1.5 py-1.5 text-left font-mono text-xs font-semibold text-slate-700 hover:text-[var(--brand)]" style={{ paddingLeft: depth * 20 }}>
+      <button onClick={() => setOpen((current) => !current)} className="flex items-center gap-1.5 py-1.5 text-left font-mono text-xs font-semibold text-slate-700 hover:text-[var(--brand)] dark:text-slate-200" style={{ paddingLeft: depth * 20 }}>
         <ChevronDown size={13} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         <span>{label}</span>
-        <span className="font-normal text-slate-400">{preview}</span>
+        <span className="font-normal text-slate-400 dark:text-slate-500">{preview}</span>
       </button>
       {open && <div>{entries.map(([key, child]) => <JsonTree key={`${label}-${key}`} label={Array.isArray(value) ? `[${key}]` : key} value={child} depth={depth + 1} path={[...path, Array.isArray(value) ? Number(key) : key]} onEdit={onEdit} openDepth={openDepth} />)}</div>}
     </div>
@@ -439,12 +439,12 @@ function TableView({ json, onChange }: TableViewProps) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><TableIcon size={15} className="text-[var(--brand)]" /> {candidate.rows.length} row{candidate.rows.length === 1 ? "" : "s"} <span className="hidden sm:inline">• click a column header to sort, click a cell to edit • scroll right for more columns</span></div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-slate-400"><TableIcon size={15} className="text-[var(--brand)]" /> {candidate.rows.length} row{candidate.rows.length === 1 ? "" : "s"} <span className="hidden sm:inline">• click a column header to sort, click a cell to edit • scroll right for more columns</span></div>
         {candidates.length > 1 && (
           <div className="ml-auto flex items-center gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Array:</span>
             {candidates.map((c) => (
-              <button key={c.key} onClick={() => setSelectedKey(c.key)} title={`View "${c.key}" as a table`} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition ${candidate.key === c.key ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}><TableIcon size={12} />{c.key}</button>
+              <button key={c.key} onClick={() => setSelectedKey(c.key)} title={`View "${c.key}" as a table`} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition ${candidate.key === c.key ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)] dark:bg-[var(--surface)] dark:text-slate-300 dark:shadow-none"}`}><TableIcon size={12} />{c.key}</button>
             ))}
           </div>
         )}
@@ -454,8 +454,8 @@ function TableView({ json, onChange }: TableViewProps) {
           <thead className="sticky top-0 z-10 bg-[var(--surface-page)]">
             <tr>
               {columns.map((column) => (
-                <th key={column} onClick={() => toggleSort(column)} className="cursor-pointer whitespace-nowrap border-b border-r border-[var(--edge-soft)] px-3 py-2 font-mono font-bold text-slate-600 hover:bg-[var(--brand-soft-hover)]">
-                  <span className="flex items-center gap-1">{column}{sort?.field === column ? (sort.direction === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={11} className="text-slate-300" />}</span>
+                <th key={column} onClick={() => toggleSort(column)} className="cursor-pointer whitespace-nowrap border-b border-r border-[var(--edge-soft)] px-3 py-2 font-mono font-bold text-slate-600 dark:text-slate-300 hover:bg-[var(--brand-soft-hover)]">
+                  <span className="flex items-center gap-1">{column}{sort?.field === column ? (sort.direction === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={11} className="text-slate-400 dark:text-slate-500" />}</span>
                 </th>
               ))}
             </tr>
@@ -469,12 +469,12 @@ function TableView({ json, onChange }: TableViewProps) {
                   return (
                     <td key={column} className="border-b border-r border-[var(--edge-soft)] px-3 py-1.5 font-mono">
                       {isUrl ? (
-                        <a href={cellValue as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{cellValue as string}</a>
+                        <a href={cellValue as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 dark:text-blue-400">{cellValue as string}</a>
                       ) : (
                         <input
                           defaultValue={cellValue === undefined ? "" : JSON.stringify(cellValue)}
                           onBlur={(event) => { if (event.target.value !== JSON.stringify(cellValue)) editCell(rowIndex, column, event.target.value); }}
-                          className={`w-full min-w-[80px] bg-transparent outline-none focus:bg-[var(--brand-soft-hover)] ${typeof cellValue === "string" ? "text-amber-700" : typeof cellValue === "boolean" ? "text-violet-600" : typeof cellValue === "number" ? "text-sky-600" : "text-slate-400"}`}
+                          className={`w-full min-w-[80px] bg-transparent outline-none focus:bg-[var(--brand-soft-hover)] ${typeof cellValue === "string" ? "text-amber-700 dark:text-amber-400" : typeof cellValue === "boolean" ? "text-violet-600 dark:text-violet-300" : typeof cellValue === "number" ? "text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500"}`}
                         />
                       )}
                     </td>
@@ -503,21 +503,161 @@ const starterNotes: Note[] = [
   {
     id: 1,
     title: "Confirm production limits",
-    text: "Check whether this needs to be raised before the partner launch.",
+    text: "Check whether rateLimit needs to be raised before partner launch.",
     path: "settings.rateLimit",
     line: 20,
-    mention: "",
+    mention: "Chenna (Lead Dev)",
     color: "bg-amber-400",
   },
   {
     id: 2,
-    title: "API versioning",
-    text: "Consider a v2 route before we add bulk updates here.",
+    title: "API versioning review",
+    text: "Consider adding a v2 route before introducing bulk user updates.",
     path: "endpoints[1]",
     line: 14,
-    mention: "",
+    mention: "Sarah (API Architect)",
     color: "bg-violet-400",
   },
+];
+
+interface FaqItem {
+  id: string;
+  category: "general" | "repair" | "views" | "convert" | "history" | "privacy";
+  categoryLabel: string;
+  question: string;
+  answer: string;
+  tags: string[];
+}
+
+const FAQ_ITEMS: FaqItem[] = [
+  {
+    id: "what-is-jsonote",
+    category: "general",
+    categoryLabel: "Getting Started",
+    question: "What is JSONote and why is it different from basic JSON formatters?",
+    answer: "JSONote is an intelligent, context-aware JSON editor that pairs raw JSON editing with structural annotation notes. Unlike basic web formatters, JSONote tracks full revision history, attaches persistent notes directly to JSON line numbers/AST paths, offers interactive 2D/3D graph visualization, and repairs malformed JSON automatically without data loss.",
+    tags: ["getting started", "features", "notes", "editor", "overview"]
+  },
+  {
+    id: "reference-notes",
+    category: "general",
+    categoryLabel: "Getting Started",
+    question: "How do Reference Notes work and do they stay attached?",
+    answer: "You can right-click any line in the JSON editor or click 'Add comment' to attach notes, todo items, or explanations directly to a JSON path (e.g. endpoints[0].auth). Notes remain attached even as you reformat, indent, or edit the document structure. You can resolve, reply to, or export review notes as Markdown.",
+    tags: ["notes", "comments", "annotation", "collaboration", "export"]
+  },
+  {
+    id: "collaboration-workspaces",
+    category: "general",
+    categoryLabel: "Getting Started",
+    question: "How do Workspaces and team collaboration work?",
+    answer: "JSONote supports both Personal and Team workspaces. You can switch or create workspaces from the top-left dropdown menu, organizing related JSON documents and notes together. You can also export full workspace JSON archives or generate encrypted snapshot URLs to share annotated JSON states.",
+    tags: ["workspaces", "team", "organization", "projects"]
+  },
+  {
+    id: "auto-repair",
+    category: "repair",
+    categoryLabel: "JSON Repair & Syntax",
+    question: "How does Automatic JSON Repair work?",
+    answer: "When you paste invalid JSON (such as Python dictionaries with single quotes 'key': 'val', missing quotes around object keys, trailing commas [1, 2, 3,], unescaped newlines, or C-style // comments), JSONote's tolerant parser automatically repairs the syntax into strict RFC-8259 compliant JSON when you click Format or press Cmd/Ctrl + Shift + F.",
+    tags: ["repair", "format", "single quotes", "trailing commas", "comments", "syntax"]
+  },
+  {
+    id: "data-integrity",
+    category: "repair",
+    categoryLabel: "JSON Repair & Syntax",
+    question: "Will JSON Repair modify my actual data values?",
+    answer: "No. The repair engine strictly fixes structural syntax defects (quotes, missing commas, comment removal, trailing delimiters, NaN/Infinity representations). Your numerical values, string content, booleans, and nulls are preserved with 100% precision.",
+    tags: ["data integrity", "safety", "repair", "precision"]
+  },
+  {
+    id: "syntax-diagnostics",
+    category: "repair",
+    categoryLabel: "JSON Repair & Syntax",
+    question: "What happens when JSON has unrepairable syntax errors?",
+    answer: "JSONote displays real-time diagnostics pinpointing the exact line number, column offset, and unexpected token causing the syntax error, highlighting the error location directly inside the CodeMirror editor.",
+    tags: ["diagnostics", "errors", "syntax error", "linting"]
+  },
+  {
+    id: "interactive-views",
+    category: "views",
+    categoryLabel: "Views & Querying",
+    question: "What are the 5 interactive views available in JSONote?",
+    answer: "JSONote features 5 specialized views: Editor View (CodeMirror 6 editor with line notes), Tree View (interactive expandable AST node tree with level depth selectors), Query View (expressive path filter evaluator), Table View (spreadsheet grid representation of array elements with column sorting), and Graph View (interactive 2D/3D node-link graph diagram with physics simulation and SVG/PNG export).",
+    tags: ["views", "tree view", "table view", "graph view", "query view", "editor"]
+  },
+  {
+    id: "query-path",
+    category: "views",
+    categoryLabel: "Views & Querying",
+    question: "How do I query JSON with path expressions in Query View?",
+    answer: "In Query View, you can type selectors like endpoints[*].name, items[?auth=true].path, or settings.*. JSONote evaluates the path in real-time, displays all matching sub-trees, and provides 1-click copy controls for filtered results.",
+    tags: ["query", "jsonpath", "filtering", "search", "paths"]
+  },
+  {
+    id: "graph-export",
+    category: "views",
+    categoryLabel: "Views & Querying",
+    question: "Can I export the interactive 2D/3D Graph diagram?",
+    answer: "Yes! In Graph View, click the SVG or PNG export buttons in the top right control bar to download crisp high-resolution vector diagrams of your JSON structure for documentation, architecture diagrams, or slides.",
+    tags: ["graph", "svg", "png", "export", "diagram"]
+  },
+  {
+    id: "supported-conversions",
+    category: "convert",
+    categoryLabel: "Conversion & Codegen",
+    question: "Which file formats can I convert JSON to?",
+    answer: "You can convert JSON bi-directionally to and from YAML, CSV (for array data), XML, TOML, and Python Dictionary literals. Click 'Convert Format' in the header to switch formats with 1-click format auto-detection.",
+    tags: ["convert", "yaml", "csv", "xml", "toml", "python"]
+  },
+  {
+    id: "code-models",
+    category: "convert",
+    categoryLabel: "Conversion & Codegen",
+    question: "How do I generate code models (TypeScript, Go, Python, Rust, Java, C#)?",
+    answer: "Click 'Generate Code' in the header tool menu. JSONote instantly infers the schema from your active JSON payload and generates strongly-typed model definitions for TypeScript (interfaces/types), Go (structs with json tags), Python (Pydantic models / TypedDict), Rust (Serde structs), Java (POJOs), or C# (Classes).",
+    tags: ["codegen", "typescript", "golang", "python", "rust", "java", "csharp"]
+  },
+  {
+    id: "revision-history",
+    category: "history",
+    categoryLabel: "History & Snapshots",
+    question: "How does automatic Revision History work?",
+    answer: "JSONote automatically records a revision snapshot whenever you format, repair, or make significant edits to your document. Click 'History' in the subheader to view past timestamps, diff changes, restore previous versions, or label revision milestones.",
+    tags: ["history", "revisions", "version control", "diff", "undo"]
+  },
+  {
+    id: "shareable-snapshots",
+    category: "history",
+    categoryLabel: "History & Snapshots",
+    question: "Are Shareable Snapshot links secure?",
+    answer: "Yes! When you click 'Share Snapshot', JSONote compresses your JSON payload into a URL hash fragment (#snapshot=...) using DEFLATE compression. Because the data is stored in the URL hash, server-side HTTP logs never receive or store your confidential JSON payload.",
+    tags: ["snapshots", "sharing", "privacy", "url", "compression"]
+  },
+  {
+    id: "data-privacy",
+    category: "privacy",
+    categoryLabel: "Privacy & Security",
+    question: "Is my JSON data uploaded or stored on any external server?",
+    answer: "No. All JSON parsing, formatting, repair, view rendering, query evaluations, and note storage occur 100% locally inside your browser's V8 engine and LocalStorage. Your data never leaves your device.",
+    tags: ["privacy", "security", "local", "browser", "data safety"]
+  },
+  {
+    id: "large-files",
+    category: "privacy",
+    categoryLabel: "Privacy & Security",
+    question: "What is the maximum JSON file size JSONote can handle?",
+    answer: "JSONote is built with virtualized line rendering and efficient AST memory management. It comfortably handles large JSON files up to 50MB+ in size without crashing or freezing the browser UI.",
+    tags: ["large files", "performance", "memory", "50MB"]
+  },
+  {
+    id: "offline-support",
+    category: "privacy",
+    categoryLabel: "Privacy & Security",
+    question: "Does JSONote work offline without an internet connection?",
+    answer: "Yes! JSONote is a fully self-contained Single Page Application (SPA). Once loaded, it works 100% offline without requiring an active internet connection.",
+    tags: ["offline", "pwa", "no internet", "browser"]
+  }
 ];
 
 export default function Index() {
@@ -552,6 +692,10 @@ export default function Index() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [faqSearch, setFaqSearch] = useState("");
+  const [faqCategory, setFaqCategory] = useState<string>("all");
+  const [expandedFaqId, setExpandedFaqId] = useState<string | null>("what-is-jsonote");
   const [tourOpen, setTourOpen] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
@@ -568,6 +712,19 @@ export default function Index() {
   const [callbackPhone, setCallbackPhone] = useState("");
   const [callbackTime, setCallbackTime] = useState("Morning (9 AM - 12 PM)");
   const [callbackSubmitted, setCallbackSubmitted] = useState(false);
+
+  const filteredFaqs = useMemo(() => {
+    return FAQ_ITEMS.filter((item) => {
+      const matchesCategory = faqCategory === "all" || item.category === faqCategory;
+      const searchLower = faqSearch.toLowerCase().trim();
+      const matchesSearch =
+        !searchLower ||
+        item.question.toLowerCase().includes(searchLower) ||
+        item.answer.toLowerCase().includes(searchLower) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(searchLower));
+      return matchesCategory && matchesSearch;
+    });
+  }, [faqCategory, faqSearch]);
 
   // Sync main JSON state into open Document Picture-in-Picture window
   useEffect(() => {
@@ -1035,6 +1192,20 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     setView("editor");
     setCompareOpen(false);
     setNotes([]);
+  };
+
+  const deleteDocumentRecord = (docName: string) => {
+    setWorkspaceDocuments((prev) => {
+      const list = prev[workspaceId] || [];
+      return {
+        ...prev,
+        [workspaceId]: list.filter((item) => item.name !== docName),
+      };
+    });
+    if (activeDocumentKey === docName) {
+      setActiveDocumentKey(null);
+    }
+    toast.success(`Deleted ${docName}`);
   };
 
   const openDocument = (name: string, content: string) => {
@@ -1690,7 +1861,6 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-[17px] font-bold tracking-[-0.03em]">JSONote</h1>
-              <span className="rounded-md bg-[var(--violet-soft-bg)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--brand)]">Beta</span>
             </div>
             <p className="text-xs font-medium text-slate-400">The JSON editor that remembers.</p>
           </div>
@@ -1713,26 +1883,27 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               ))}
             </div>}
           </div>
+          <button onClick={() => setFaqOpen(true)} className="header-button bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-950/70 font-bold" title="Frequently Asked Questions Knowledge Base"><CircleHelp size={15} className="text-teal-500" /> FAQ</button>
           <button onClick={() => setTourOpen(true)} className="header-button bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70" title="Interactive Product Walkthrough"><Sparkles size={15} className="text-amber-500 animate-pulse" /> Take a Tour</button>
-          <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "bg-slate-100 text-slate-800" : ""}`}><CircleHelp size={17} /> Help</button>
+          <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "bg-slate-100 text-slate-800" : ""}`}><CircleHelp size={17} /> Help & Contact</button>
         </div>
       </header>
 
       <section className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
         <div className="relative hidden lg:flex">
           {leftCollapsed ? (
-            <div className="flex w-11 shrink-0 flex-col items-center gap-3 border-r border-[var(--edge)] bg-white py-5">
-              <button onClick={() => setLeftCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Expand sidebar" title="Expand sidebar"><PanelLeftOpen size={18} /></button>
+            <div className="flex w-11 shrink-0 flex-col items-center gap-3 border-r border-[var(--edge)] bg-white py-5 dark:bg-[var(--surface)] dark:border-[#30363d]">
+              <button onClick={() => setLeftCollapsed(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white" aria-label="Expand sidebar" title="Expand sidebar"><PanelLeftOpen size={18} /></button>
               <div className="h-px w-6 bg-[var(--edge-soft)]" />
               <button onClick={() => { setLeftCollapsed(false); createDocument(); }} className="rounded-lg p-2 text-[var(--brand)] transition hover:bg-[var(--brand-soft)]" aria-label="New document" title="New document"><FilePlus2 size={18} /></button>
-              <button onClick={() => { setLeftCollapsed(false); setActiveSection("current"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Current document" title="Current document"><FileJson2 size={18} /></button>
-              <button onClick={() => { setLeftCollapsed(false); setActiveSection("documents"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="My documents" title="My documents"><FolderOpen size={18} /></button>
+              <button onClick={() => { setLeftCollapsed(false); setActiveSection("current"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white" aria-label="Current document" title="Current document"><FileJson2 size={18} /></button>
+              <button onClick={() => { setLeftCollapsed(false); setActiveSection("documents"); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white" aria-label="My documents" title="My documents"><FolderOpen size={18} /></button>
             </div>
           ) : (
-            <aside style={{ width: leftWidth }} className="flex shrink-0 flex-col border-r border-[var(--edge)] bg-white px-4 py-6">
-              <div className="mb-2 flex items-center justify-end"><button onClick={() => setLeftCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={16} /></button></div>
-              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-3 text-left transition hover:border-[var(--brand-border)]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[var(--edge)] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-slate-600 hover:bg-slate-50"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[var(--edge-soft)]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[var(--edge)] px-2.5 py-2 text-xs outline-none focus:border-[var(--brand-border)]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-slate-50 text-slate-400"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[var(--violet-soft)] text-[var(--violet-ink)]" : "bg-slate-50 text-slate-400"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[var(--ink-solid)] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
-              <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_20px_var(--brand-shadow)] transition hover:bg-[var(--violet-dark)]">
+            <aside style={{ width: leftWidth }} className="flex shrink-0 flex-col border-r border-[var(--edge)] bg-white px-4 py-6 dark:bg-[var(--surface)] dark:border-[#30363d]">
+              <div className="mb-2 flex items-center justify-end"><button onClick={() => setLeftCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white" aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={16} /></button></div>
+              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-3 text-left transition hover:border-[var(--brand-border)]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700 dark:text-slate-200">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[var(--edge)] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)] dark:bg-[var(--surface)] dark:border-[#30363d]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-[var(--surface-soft)]"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[var(--edge-soft)]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[var(--edge)] bg-white px-2.5 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white dark:border-[#30363d]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[var(--violet-soft)] text-[var(--violet-ink)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[var(--ink-solid)] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
+              <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_20px_var(--brand-shadow)] transition hover:bg-[var(--brand-hover)] dark:bg-teal-600 dark:hover:bg-teal-500 dark:text-white dark:shadow-teal-950/60">
                 <FilePlus2 size={17} /> New document
               </button>
               <nav className="mt-7 space-y-1">
@@ -1742,11 +1913,6 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               <div className="mt-9 border-t border-[var(--edge-soft)] pt-5">
                 <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Recent</p>
                 {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "bg-[var(--brand-soft-hover)] text-[var(--brand)]" : ""}`}><span className={`h-2 w-2 rounded-full ${document.name.includes("webhook") ? "bg-[var(--amber-dot)]" : "bg-[var(--brand)]"}`} /> {document.name}</button>)}
-              </div>
-              <div className="mt-auto rounded-xl bg-[var(--violet-soft-bg)] px-4 py-4 text-sm text-[var(--violet-ink)]">
-                <Sparkles size={18} className="mb-2" />
-                <p className="font-bold">Keep context close.</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--violet-muted)]">Notes stay attached to the structure they explain.</p>
               </div>
             </aside>
           )}
@@ -1764,21 +1930,21 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 <span className="text-slate-300">/</span>
                 <span className="font-medium text-slate-500">{activeSection === "documents" ? "My documents" : "Workspace"}</span>
                 <span className="text-slate-300">/</span>
-                <div className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/80 px-2 py-0.5 transition-all hover:border-[var(--brand-border)] hover:bg-white focus-within:border-[var(--brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--brand-ring)]" title="Click to rename document">
+                <div className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/80 px-2 py-0.5 transition-all hover:border-[var(--brand-border)] hover:bg-white focus-within:border-[var(--brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--brand-ring)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-[var(--surface)] dark:focus-within:bg-[var(--surface)]" title="Click to rename document">
                   <input
                     aria-label="Document name"
                     value={documentName}
                     onChange={(event) => setDocumentName(event.target.value)}
-                    className="min-w-0 max-w-[200px] truncate bg-transparent font-semibold text-slate-800 outline-none"
+                    className="min-w-0 max-w-[200px] truncate bg-transparent font-semibold text-slate-800 outline-none dark:text-white"
                     placeholder="Document name"
                   />
-                  <Pencil size={12} className="shrink-0 text-slate-400 opacity-60 group-hover:opacity-100" />
+                  <Pencil size={12} className="shrink-0 text-slate-400 opacity-60 group-hover:opacity-100 dark:text-slate-400" />
                 </div>
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2.5">
                 {status === "valid" ? (
-                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-xs">
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-xs dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -1786,8 +1952,8 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     Valid JSON
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-rose-50/80 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-xs">
-                    <AlertCircle size={13} className="shrink-0 text-rose-600" />
+                  <div className="flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-rose-50/80 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-xs dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400">
+                    <AlertCircle size={13} className="shrink-0 text-rose-600 dark:text-rose-400" />
                     Invalid JSON
                   </div>
                 )}
@@ -1817,10 +1983,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               <button onClick={openHistory} title="View Revision History" className="tool-button">
                 <HistoryIcon size={16} /> History
               </button>
-              <button onClick={minifyJson} title="Minify JSON payload" className="tool-button">
-                <Code2 size={16} /> Minify
-              </button>
-              <button onClick={() => shareLink(compareOpen)} title="Copy compressed URL snapshot link (contains JSON + Notes + Diffs)" className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)] font-bold shadow-2xs hover:bg-[var(--brand)] hover:text-white transition-all active:scale-95">
+              <button onClick={() => shareLink(compareOpen)} title="Copy compressed URL snapshot link (contains JSON + Notes + Diffs)" className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)] font-bold shadow-2xs hover:bg-[var(--brand)] hover:text-white transition-all active:scale-95 shimmer-highlight">
                 <Camera size={16} /> Share Snapshot
               </button>
               <input ref={fileInputRef} type="file" accept=".json,.jsonote,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
@@ -1832,12 +1995,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
                     <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
                     <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
-                    <button onClick={() => { copyJson(); setMoreOpen(false); }} className="menu-item">{copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} className="text-[var(--brand)]" />} Copy JSON<span className="menu-hint">to clipboard</span></button>
                     <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json{notes.length > 0 && <span className="menu-hint">with comments</span>}</button>
                     {notes.length > 0 && (
                       <button onClick={() => { downloadPlainJson(); setMoreOpen(false); }} className="menu-item"><FileText size={15} className="text-[var(--brand)]" /> Download plain .json<span className="menu-hint">without comments</span></button>
                     )}
                     <div className="my-1 border-t border-[var(--edge-soft)]" />
+                    <button onClick={() => { minifyJson(); setMoreOpen(false); }} className="menu-item"><Code2 size={15} className="text-[var(--brand)]" /> Minify JSON<span className="menu-hint">compact single line</span></button>
                     <button onClick={() => { setSortOpen(true); setMoreOpen(false); }} className="menu-item"><ArrowUpDown size={15} className="text-[var(--brand)]" /> Sort JSON<span className="menu-hint">by field or key</span></button>
                     <button onClick={() => { setSchemaOpen(true); setMoreOpen(false); }} className="menu-item"><ShieldCheck size={15} className="text-[var(--brand)]" /> Validate schema<span className="menu-hint">JSON Schema</span></button>
                     <button onClick={() => { setCodegenOpen(true); setMoreOpen(false); if (!codegenOutput) runCodegen(); }} className="menu-item"><FileCode2 size={15} className="text-[var(--brand)]" /> Generate code<span className="menu-hint">TS, Python, Go…</span></button>
@@ -1873,7 +2036,79 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
           <div className="flex flex-1 flex-col gap-5 p-4 lg:flex-row lg:p-6">
             <section className={fullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white" : "relative flex h-[calc(100vh-130px)] min-h-[580px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]"}>
-              {activeSection === "documents" && <div className="absolute inset-0 z-20 overflow-auto bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xl font-bold tracking-[-0.03em] text-slate-800">My documents</p><p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p></div><button onClick={() => createDocument()} className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white"><FilePlus2 size={15} /> New document</button></div><div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className="group min-w-0 rounded-xl border border-[var(--edge)] p-4 text-left transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)]"><div className="flex items-center justify-between"><FileJson2 size={20} className="text-[var(--brand)]" /><ChevronDown size={15} className="-rotate-90 text-slate-300 transition group-hover:text-[var(--brand)]" /></div><p className="mt-5 truncate text-sm font-bold text-slate-700">{document.name}</p><p className="mt-1 text-xs text-slate-400">Updated {document.updated}</p></button>)}</div></div>}
+              {activeSection === "documents" && (
+                <div className="absolute inset-0 z-20 overflow-auto bg-white p-6 dark:bg-[var(--surface-page)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xl font-bold tracking-[-0.03em] text-slate-800 dark:text-white">My documents</p>
+                      <p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.name}
+                        className="group relative flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4 transition-all hover:border-[var(--brand-border)] hover:shadow-md dark:bg-[var(--surface)] dark:hover:bg-[var(--surface-soft)]"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => openDocument(doc.name, doc.content)}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-bold text-slate-800 hover:text-[var(--brand)] dark:text-white dark:hover:text-[var(--brand)]"
+                            >
+                              <FileJson2 size={18} className="shrink-0 text-[var(--brand)]" />
+                              <span className="truncate">{doc.name}</span>
+                            </button>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await copyText(doc.content);
+                                  toast.success(`Copied ${doc.name} to clipboard!`);
+                                }}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] transition-all dark:hover:bg-[var(--edge)]"
+                                title="Copy JSON payload"
+                              >
+                                <Copy size={14} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+                                    deleteDocumentRecord(doc.name);
+                                  }
+                                }}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                                title="Delete document"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="mt-2.5 text-xs text-slate-400">Updated {doc.updated}</p>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-[var(--edge-soft)] pt-3">
+                          <span className="font-mono text-[10px] text-slate-400">
+                            {doc.content.split("\n").length} lines · {(doc.content.length / 1024).toFixed(1)} KB
+                          </span>
+                          <button
+                            onClick={() => openDocument(doc.name, doc.content)}
+                            className="flex items-center gap-1 text-xs font-bold text-[var(--brand)] hover:underline"
+                          >
+                            Open <ChevronDown size={14} className="-rotate-90" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {compareOpen && (
                 <div className="absolute inset-0 z-10 flex flex-col bg-white">
                   <div className="flex flex-wrap items-center gap-3 border-b border-[var(--edge)] px-5 py-3">
@@ -1972,8 +2207,27 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 </div>
               )}
               <div className="flex items-center justify-between border-b border-[var(--edge)] px-5 py-3">
-                <div className="flex items-center gap-4"><button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button><button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button><button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button><button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button><button onClick={() => { setView("graph"); setCompareOpen(false); }} className={view === "graph" ? "tab-active" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Graph</button></div>
-                <div className="flex items-center gap-3 text-xs font-medium text-slate-400"><span>{lineCount} lines</span><button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button>
+                  <button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button>
+                  <button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button>
+                  <button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button>
+                  <button
+                    onClick={() => { setView("graph"); setCompareOpen(false); }}
+                    className={`flex items-center gap-1.5 transition-all ${view === "graph" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}`}
+                  >
+                    <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                    <span>Graph</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
+                  <button onClick={copyJson} className="tool-button h-7 px-2.5 text-[11px] font-bold border-[var(--edge)] hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] transition-all" title="Copy JSON payload to clipboard">
+                    {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <span>{lineCount} lines</span>
+                  <button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+                </div>
               </div>
               <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--surface-soft)]">
                 {view === "query" ? <div className="flex min-h-[520px] flex-1 flex-col overflow-hidden">
@@ -2008,8 +2262,8 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
                   </div>
                 </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} onUpdateJson={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
-                {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300">•</span> Spaces: 2</div>}
-                {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
+                {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm dark:bg-[var(--surface)] dark:text-slate-300 dark:border-[#30363d]"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300 dark:text-slate-600">•</span> Spaces: 2</div>}
+                {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)] dark:bg-[var(--surface)] dark:border-[#30363d]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
             </section>
 
@@ -2027,8 +2281,8 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-base font-bold tracking-[-0.025em] text-slate-800">Reference notes</p>
-                        <p className="mt-1 text-xs text-slate-400">Context for future you.</p>
+                        <p className="text-base font-bold tracking-[-0.025em] text-slate-800 dark:text-white">Comments & Notes</p>
+                        <p className="mt-1 text-xs text-slate-400">Contextual line annotations & @mentions.</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)] shadow-2xs">
@@ -2041,19 +2295,14 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
                     <div className="relative mt-4">
                       <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
-                      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes…" className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)]" />
+                      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes…" className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)] dark:focus:bg-[var(--surface)] dark:text-white" />
                     </div>
                     <div className="mt-3 flex items-center gap-1">
                       {([["all", "All", notes.length], ["open", "Open", openNoteCount], ["resolved", "Resolved", notes.length - openNoteCount]] as const).map(([value, label, count]) => (
-                        <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${noteFilter === value ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)]"}`}>
+                        <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${noteFilter === value ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-[var(--edge)]"}`}>
                           {label} {count}
                         </button>
                       ))}
-                      {notes.length > 0 && (
-                        <button onClick={exportReview} className="ml-auto flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-500 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)]" title="Export review as markdown">
-                          <Download size={12} /> Review
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -2064,11 +2313,11 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           <div className="mb-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]">
                             <Pencil size={12} /> Editing comment on line {commentLine}
                           </div>
-                          <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400" />
-                          <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 text-slate-600 outline-none placeholder:text-slate-400" />
-                          <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400" />
+                          <input autoFocus value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} placeholder="Note title" className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 dark:text-white" />
+                          <textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="What should you remember?" className="mt-2 min-h-16 w-full resize-none bg-transparent text-xs leading-5 text-slate-600 outline-none placeholder:text-slate-400 dark:text-slate-200" />
+                          <input value={noteMention} onChange={(event) => setNoteMention(event.target.value)} placeholder="Mention a name (optional)" className="mt-1 w-full border-b border-[var(--brand-soft-border)] bg-transparent py-1.5 text-xs outline-none placeholder:text-slate-400 dark:text-slate-200" />
                           <div className="mt-3 flex justify-end gap-2">
-                            <button onClick={() => { setEditingNoteId(null); setNoteTitle(""); setNoteText(""); setNoteMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors">
+                            <button onClick={() => { setEditingNoteId(null); setNoteTitle(""); setNoteText(""); setNoteMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors dark:text-slate-300 dark:hover:bg-[var(--edge)]">
                               Cancel
                             </button>
                             <button onClick={addNote} className="rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 transition-all flex items-center gap-1.5 cursor-pointer">
@@ -2077,55 +2326,65 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           </div>
                         </div>
                       ) : (
-                        <article key={note.id} className={`group relative overflow-hidden rounded-2xl border transition-all hover:shadow-md ${note.resolved ? "border-slate-200/70 bg-slate-50/70 opacity-75" : "border-slate-200 bg-white"}`}>
+                        <article key={note.id} className={`group relative overflow-hidden rounded-2xl border transition-all hover:shadow-md ${note.resolved ? "border-slate-200/70 bg-slate-50/70 opacity-75 dark:border-[#30363d] dark:bg-[var(--surface-soft)]" : "border-slate-200 bg-white dark:border-[#30363d] dark:bg-[var(--surface)]"}`}>
                           <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${note.resolved ? "bg-emerald-400" : note.color || "bg-amber-400"}`} />
 
                           <div className="p-4 pl-4.5">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                                  <span onClick={() => jumpToNote(note)} className="cursor-pointer inline-flex items-center gap-1 rounded bg-[var(--brand-soft)] border border-[var(--brand-border)] px-1.5 py-0.2 font-mono text-[10px] font-bold text-[var(--brand)] transition hover:bg-[var(--brand)] hover:text-white">
+                                    Line {note.line}
+                                  </span>
+                                  {note.path && (
+                                    <span className="truncate max-w-[150px] font-mono text-[10px] text-slate-400">
+                                      {note.path}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <p className={`cursor-pointer text-sm font-bold text-slate-800 transition hover:text-[var(--brand)] ${note.resolved ? "line-through decoration-slate-400" : ""}`} onClick={() => jumpToNote(note)}>
+                                  <p className={`cursor-pointer text-sm font-bold text-slate-800 transition hover:text-[var(--brand)] dark:text-white ${note.resolved ? "line-through decoration-slate-400" : ""}`} onClick={() => jumpToNote(note)}>
                                     {note.title}
                                   </p>
                                   {note.resolved && (
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-2xs">
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-2xs dark:border-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-400">
                                       <CircleCheck size={11} /> Resolved
                                     </span>
                                   )}
                                 </div>
                                 {note.mention && (
                                   <div className="mt-1.5">
-                                    <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/80 bg-teal-50/80 px-2 py-0.5 text-[11px] font-bold text-teal-800 shadow-2xs">
-                                      <AtSign size={11} className="text-teal-600" />
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/80 bg-teal-50/80 px-2 py-0.5 text-[11px] font-bold text-teal-800 shadow-2xs dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-300">
+                                      <AtSign size={11} className="text-teal-600 dark:text-teal-400" />
                                       {note.mention}
                                     </span>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/80 p-0.5 opacity-80 transition group-hover:opacity-100">
-                                <button onClick={(event) => { event.stopPropagation(); toggleResolve(note); }} className={`rounded-md p-1.5 transition ${note.resolved ? "bg-emerald-100 text-emerald-700 font-bold" : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-700"}`} aria-label={note.resolved ? "Reopen" : "Resolve"} title={note.resolved ? "Reopen note" : "Mark resolved"}>
+                              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/80 p-0.5 opacity-80 transition group-hover:opacity-100 dark:border-[#30363d] dark:bg-[var(--surface-soft)]">
+                                <button onClick={(event) => { event.stopPropagation(); toggleResolve(note); }} className={`rounded-md p-1.5 transition ${note.resolved ? "bg-emerald-100 text-emerald-700 font-bold dark:bg-emerald-950/60 dark:text-emerald-300" : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"}`} aria-label={note.resolved ? "Reopen" : "Resolve"} title={note.resolved ? "Reopen note" : "Mark resolved"}>
                                   <CircleCheck size={14} />
                                 </button>
-                                <button onClick={(event) => { event.stopPropagation(); setReplyingNoteId(replyingNoteId === note.id ? null : note.id); }} className={`rounded-md p-1.5 transition ${replyingNoteId === note.id ? "bg-teal-100 text-teal-800 font-bold shadow-2xs" : "text-slate-400 hover:bg-teal-50 hover:text-teal-700"}`} aria-label="Reply" title="Reply to thread">
+                                <button onClick={(event) => { event.stopPropagation(); setReplyingNoteId(replyingNoteId === note.id ? null : note.id); }} className={`rounded-md p-1.5 transition ${replyingNoteId === note.id ? "bg-teal-100 text-teal-800 font-bold shadow-2xs dark:bg-teal-950/60 dark:text-teal-300" : "text-slate-400 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/40 dark:hover:text-teal-300"}`} aria-label="Reply" title="Reply to thread">
                                   <ReplyIcon size={13} />
                                 </button>
-                                <button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700" aria-label="Edit note" title="Edit note">
+                                <button onClick={(event) => { event.stopPropagation(); editNote(note); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/40 dark:hover:text-amber-300" aria-label="Edit note" title="Edit note">
                                   <Pencil size={13} />
                                 </button>
-                                <button onClick={(event) => { event.stopPropagation(); setNotes((current) => { const next = current.filter((item) => item.id !== note.id); const docKey = `${workspaceId}:${documentName}`; setDocumentNotes((all) => ({ ...all, [docKey]: next })); return next; }); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Remove note" title="Delete note">
+                                <button onClick={(event) => { event.stopPropagation(); setNotes((current) => { const next = current.filter((item) => item.id !== note.id); const docKey = `${workspaceId}:${documentName}`; setDocumentNotes((all) => ({ ...all, [docKey]: next })); return next; }); }} className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400" aria-label="Remove note" title="Delete note">
                                   <Trash2 size={13} />
                                 </button>
                               </div>
                             </div>
 
-                            <p className="mt-2.5 text-xs leading-5 text-slate-600">{note.text}</p>
+                            <p className="mt-2.5 text-xs leading-5 text-slate-600 dark:text-slate-300">{note.text}</p>
 
                             {note.replies && note.replies.length > 0 && (
-                              <div className="mt-3.5 space-y-2 border-l-2 border-slate-200/80 pl-3">
+                              <div className="mt-3.5 space-y-2 border-l-2 border-slate-200/80 pl-3 dark:border-[#30363d]">
                                 {note.replies.map((reply) => (
-                                  <div key={reply.id} className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 shadow-2xs">
-                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                                  <div key={reply.id} className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 shadow-2xs dark:border-[#30363d] dark:bg-[var(--surface-soft)]">
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
                                       <CornerDownRight size={12} className="shrink-0 text-slate-400" />
                                       <span>
                                         {reply.mention && (
@@ -2142,11 +2401,11 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                             )}
 
                             {replyingNoteId === note.id && (
-                              <div className="mt-3 rounded-2xl border border-teal-200 bg-slate-50/90 p-3 shadow-sm ring-2 ring-teal-500/10">
-                                <textarea autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…" className="min-h-14 w-full resize-none bg-transparent text-xs leading-5 text-slate-700 outline-none placeholder:text-slate-400" />
-                                <input value={replyMention} onChange={(event) => setReplyMention(event.target.value)} placeholder="Mention (optional)" className="mt-1 w-full border-b border-slate-200 bg-transparent py-1 text-xs outline-none placeholder:text-slate-400 focus:border-teal-500" />
+                              <div className="mt-3 rounded-2xl border border-teal-200 bg-slate-50/90 p-3 shadow-sm ring-2 ring-teal-500/10 dark:border-teal-900/60 dark:bg-[var(--surface-soft)]">
+                                <textarea autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…" className="min-h-14 w-full resize-none bg-transparent text-xs leading-5 text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200" />
+                                <input value={replyMention} onChange={(event) => setReplyMention(event.target.value)} placeholder="Mention (optional)" className="mt-1 w-full border-b border-slate-200 bg-transparent py-1 text-xs outline-none placeholder:text-slate-400 focus:border-teal-500 dark:border-[#30363d] dark:text-slate-200" />
                                 <div className="mt-2.5 flex justify-end gap-2">
-                                  <button onClick={() => { setReplyingNoteId(null); setReplyText(""); setReplyMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors">
+                                  <button onClick={() => { setReplyingNoteId(null); setReplyText(""); setReplyMention(""); }} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors dark:text-slate-300 dark:hover:bg-[var(--edge)]">
                                     Cancel
                                   </button>
                                   <button onClick={() => addReply(note.id)} className="rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 transition-all flex items-center gap-1.5 cursor-pointer">
@@ -2156,7 +2415,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                               </div>
                             )}
 
-                            <button onClick={() => jumpToNote(note)} className="mt-3.5 flex w-full items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-1.5 text-xs font-semibold transition-all hover:border-[var(--brand-border)] hover:bg-white hover:shadow-2xs group">
+                            <button onClick={() => jumpToNote(note)} className="mt-3.5 flex w-full items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-1.5 text-xs font-semibold transition-all hover:border-[var(--brand-border)] hover:bg-white hover:shadow-2xs group dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-[var(--surface)]">
                               <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-[var(--brand)]">
                                 <Code2 size={13} className="text-[var(--brand)]" />
                                 {note.path}
@@ -2425,6 +2684,175 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
         </div>
       )}
 
+      {faqOpen && (
+        <div onClick={() => setFaqOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[92vh] w-[94vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
+            {/* FAQ Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--edge)] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500 ring-1 ring-teal-500/20">
+                  <CircleHelp size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    Frequently Asked Questions
+                    <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold text-teal-600 dark:text-teal-400 border border-teal-500/20">Knowledge Base</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Everything you need to know about JSONote features, auto-repair, privacy, & keyboard shortcuts.</p>
+                </div>
+              </div>
+              <button onClick={() => setFaqOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close FAQ">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search Bar & Category Filters */}
+            <div className="mt-4 space-y-3">
+              <div className="relative">
+                <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  value={faqSearch}
+                  onChange={(e) => setFaqSearch(e.target.value)}
+                  placeholder="Search any question, feature, syntax repair, or keyboard shortcut..."
+                  className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2.5 pl-10 pr-10 text-xs font-medium text-slate-800 outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)] dark:text-white dark:focus:bg-[var(--surface)]"
+                />
+                {faqSearch && (
+                  <button onClick={() => setFaqSearch("")} className="absolute right-3 top-2.5 rounded p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                {[
+                  { id: "all", label: "All Questions", count: FAQ_ITEMS.length },
+                  { id: "general", label: "⚡ Getting Started", count: FAQ_ITEMS.filter(i => i.category === "general").length },
+                  { id: "repair", label: "🛠️ JSON Repair", count: FAQ_ITEMS.filter(i => i.category === "repair").length },
+                  { id: "views", label: "🔍 Views & Query", count: FAQ_ITEMS.filter(i => i.category === "views").length },
+                  { id: "convert", label: "🔄 Convert & Code", count: FAQ_ITEMS.filter(i => i.category === "convert").length },
+                  { id: "history", label: "🕒 History & Share", count: FAQ_ITEMS.filter(i => i.category === "history").length },
+                  { id: "privacy", label: "🔒 Privacy & Offline", count: FAQ_ITEMS.filter(i => i.category === "privacy").length },
+                  { id: "hotkeys", label: "⌨️ Keyboard Hotkeys", count: 8 },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFaqCategory(cat.id)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${faqCategory === cat.id ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-[var(--edge)]"}`}
+                  >
+                    {cat.label} ({cat.count})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Questions List & Content Area */}
+            <div className="mt-4 min-h-0 flex-1 overflow-auto pr-1 space-y-3">
+              {faqCategory === "hotkeys" ? (
+                <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white mb-3">
+                    ⌨️ Keyboard Shortcuts Cheat Sheet
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
+                    {[
+                      { key: "Cmd / Ctrl + S", desc: "Save document to active workspace" },
+                      { key: "Cmd / Ctrl + Shift + F", desc: "Format & Auto-Repair JSON syntax" },
+                      { key: "Cmd / Ctrl + M", desc: "Minify JSON payload to single line" },
+                      { key: "Cmd / Ctrl + Z", desc: "Undo last editor change" },
+                      { key: "Cmd / Ctrl + Shift + Z", desc: "Redo undone change" },
+                      { key: "Cmd / Ctrl + F", desc: "Find & Replace inside CodeMirror editor" },
+                      { key: "Right-Click Line", desc: "Add line reference note / comment" },
+                      { key: "Click Tree Node", desc: "Inline edit JSON AST property value" },
+                    ].map((hk) => (
+                      <div key={hk.key} className="flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
+                        <span className="text-slate-600 dark:text-slate-300 font-medium">{hk.desc}</span>
+                        <kbd className="rounded border border-[var(--edge)] bg-[var(--surface-soft)] px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--brand)]">{hk.key}</kbd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                filteredFaqs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Search size={32} className="text-slate-400 mb-2 opacity-50" />
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No matching questions found</p>
+                    <p className="mt-1 text-xs text-slate-400">Try searching for terms like "repair", "export", "notes", or "privacy".</p>
+                    <button onClick={() => { setFaqSearch(""); setFaqCategory("all"); }} className="mt-3 rounded-lg bg-[var(--brand-soft)] px-3 py-1.5 text-xs font-bold text-[var(--brand)] hover:bg-[var(--brand-soft-hover)]">
+                      Reset Filters
+                    </button>
+                  </div>
+                ) : (
+                  filteredFaqs.map((faq) => {
+                    const isExpanded = expandedFaqId === faq.id;
+                    return (
+                      <div
+                        key={faq.id}
+                        className={`rounded-xl border transition-all ${isExpanded ? "border-[var(--brand-border)] bg-[var(--surface-soft)] shadow-sm" : "border-[var(--edge)] bg-white hover:border-[var(--brand-border)] dark:bg-[var(--surface)]"}`}
+                      >
+                        <button
+                          onClick={() => setExpandedFaqId(isExpanded ? null : faq.id)}
+                          className="flex w-full items-start justify-between gap-3 p-4 text-left"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="inline-block rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand)] mb-1.5">
+                              {faq.categoryLabel}
+                            </span>
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-white leading-snug">
+                              {faq.question}
+                            </h4>
+                          </div>
+                          <div className="mt-1 shrink-0 rounded-lg p-1 text-slate-400 transition-transform">
+                            <ChevronDown size={16} className={`transition-transform duration-200 ${isExpanded ? "rotate-180 text-[var(--brand)]" : ""}`} />
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-[var(--edge)] px-4 pb-4 pt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                            <p>{faq.answer}</p>
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--edge-soft)] pt-2.5">
+                              <div className="flex flex-wrap gap-1">
+                                {faq.tags.map((t) => (
+                                  <span key={t} className="rounded bg-[var(--edge-soft)] px-1.5 py-0.5 font-mono text-[9px] text-slate-400">
+                                    #{t}
+                                  </span>
+                                ))}
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  await copyText(`${faq.question}\n\n${faq.answer}`);
+                                  toast.success("Question & Answer copied!");
+                                }}
+                                className="flex items-center gap-1 text-[10px] font-bold text-[var(--brand)] hover:underline"
+                              >
+                                <Copy size={11} /> Copy Answer
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--edge)] pt-4">
+              <p className="text-xs text-slate-400">
+                Can't find your answer? <span className="font-semibold text-slate-700 dark:text-slate-200">Our engineering support team is ready to help.</span>
+              </p>
+              <button
+                onClick={() => { setFaqOpen(false); setHelpOpen(true); }}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--brand)] px-4 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)] shadow-xs"
+              >
+                <MessageSquarePlus size={14} /> Submit Query / Contact Support
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {helpOpen && (
         <div onClick={() => setHelpOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div onClick={(event) => event.stopPropagation()} className="flex max-h-[92vh] w-[94vw] max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
@@ -2645,23 +3073,23 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       </div>
                     </div>
 
-                    {/* WhatsApp Option */}
+                    {/* LinkedIn Option */}
                     <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
                       <div>
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
-                          <MessageCircle size={18} className="text-emerald-500" /> WhatsApp Support
+                          <Globe size={18} className="text-sky-500" /> LinkedIn Profile
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">Connect directly on WhatsApp for real-time developer help.</p>
+                        <p className="mt-1 text-xs text-slate-500">Connect on LinkedIn with Chenna Kesava Reddy Devapatla.</p>
 
                         <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1.5 text-xs dark:bg-[var(--surface)]">
-                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200">+91 9398548188</span>
+                          <span className="truncate font-mono font-bold text-slate-800 dark:text-slate-200">chenna-kesava-reddy-devapatla-041236216</span>
                           <button
                             type="button"
                             onClick={async () => {
-                              await copyText("9398548188");
-                              toast.success("Copied WhatsApp number to clipboard!");
+                              await copyText("https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216");
+                              toast.success("Copied LinkedIn URL to clipboard!");
                             }}
-                            className="tool-button px-2 py-1 text-[10px]"
+                            className="tool-button px-2 py-1 text-[10px] shrink-0 ml-1"
                           >
                             <Copy size={11} /> Copy
                           </button>
@@ -2670,13 +3098,44 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                       <div className="mt-4">
                         <a
-                          href="https://wa.me/919398548188?text=Hi%20JSONote%20Team!%20I%20have%20a%20question%20regarding%20JSONote."
+                          href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216"
                           target="_blank"
                           rel="noreferrer"
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-sky-700"
                         >
-                          <ExternalLink size={13} /> WhatsApp Chat
+                          <ExternalLink size={13} /> Open LinkedIn Profile
                         </a>
+                      </div>
+                    </div>
+
+                    {/* GitHub & Medium Option */}
+                    <div className="flex flex-col justify-between rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
+                          <Code2 size={18} className="text-slate-700 dark:text-slate-300" /> Developer Profiles
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">Check out open-source repositories and technical articles.</p>
+
+                        <div className="mt-3 space-y-1.5">
+                          <a
+                            href="https://github.com/chenna8464"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-[var(--brand)] dark:bg-[var(--surface)] dark:text-slate-200"
+                          >
+                            <span className="flex items-center gap-1.5"><Code2 size={13} /> GitHub: github.com/chenna8464</span>
+                            <ExternalLink size={11} className="text-slate-400" />
+                          </a>
+                          <a
+                            href="https://medium.com/@chennadvp7799"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-600 dark:bg-[var(--surface)] dark:text-slate-200"
+                          >
+                            <span className="flex items-center gap-1.5"><FileText size={13} className="text-emerald-600" /> Medium: medium.com/@chennadvp7799</span>
+                            <ExternalLink size={11} className="text-slate-400" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2816,22 +3275,22 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
       {sortOpen && (
         <div onClick={() => setSortOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Sort JSON</p><button onClick={() => setSortOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800 dark:text-white">Sort JSON</p><button onClick={() => setSortOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button></div>
             {sortCandidates.length === 0 && !(status === "valid" && (() => { try { const v = JSON.parse(json); return v !== null && typeof v === "object" && !Array.isArray(v); } catch { return false; } })()) ? (
-              <p className="mt-4 text-sm text-slate-500">This document has no array to sort, and isn't a plain object either. Fix the JSON syntax or open a different document.</p>
+              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">This document has no array to sort, and isn't a plain object either. Fix the JSON syntax or open a different document.</p>
             ) : (
               <>
                 <p className="mt-1 text-xs text-slate-400">Sort an array (by field, or its values directly) or sort an object's keys alphabetically.</p>
                 <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-slate-400">Target</label>
-                <select value={sortTargetKey ?? sortCandidates[0]?.key ?? "__root_object__"} onChange={(event) => { setSortTargetKey(event.target.value); setSortField(""); }} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+                <select value={sortTargetKey ?? sortCandidates[0]?.key ?? "__root_object__"} onChange={(event) => { setSortTargetKey(event.target.value); setSortField(""); }} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                   {sortCandidates.map((c) => <option key={c.key} value={c.key}>{c.key === "root" ? "Root array" : `"${c.key}" array`}</option>)}
                   {(() => { try { const v = JSON.parse(json); return v !== null && typeof v === "object" && !Array.isArray(v); } catch { return false; } })() && <option value="__root_object__">Root object — sort keys A→Z</option>}
                 </select>
                 {sortTargetKey !== "__root_object__" && (sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.length ?? 0) > 0 && (
                   <>
                     <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-slate-400">Sort by field</label>
-                    <select value={sortField} onChange={(event) => setSortField(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+                    <select value={sortField} onChange={(event) => setSortField(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                       <option value="">(sort values directly)</option>
                       {sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.map((field) => <option key={field} value={field}>{field}</option>)}
                     </select>
@@ -2853,30 +3312,30 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
       {schemaOpen && (
         <div onClick={() => setSchemaOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[90vh] w-[92vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Validate against JSON Schema</p><button onClick={() => setSchemaOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[90vh] w-[92vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800 dark:text-white">Validate against JSON Schema</p><button onClick={() => setSchemaOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Paste a JSON Schema (draft-07 or newer) — validation runs entirely in your browser, nothing is uploaded.</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button onClick={generateSchemaFromDoc} className="tool-button h-8 px-2.5 text-xs text-[var(--brand)]">
                 <WandSparkles size={13} /> Auto-generate schema from document
               </button>
-              <button onClick={loadTestSchema} className="tool-button h-8 px-2.5 text-xs text-slate-600">
+              <button onClick={loadTestSchema} className="tool-button h-8 px-2.5 text-xs text-slate-600 dark:text-slate-300">
                 <FileCode2 size={13} /> Load test schema with errors
               </button>
             </div>
-            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-[320px] md:h-[380px] w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3.5 font-mono text-xs leading-5 outline-none focus:border-[var(--brand-border)]" />
+            <textarea value={schemaText} onChange={(event) => setSchemaText(event.target.value)} spellCheck={false} className="mt-3 h-[320px] md:h-[380px] w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3.5 font-mono text-xs leading-5 outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:text-slate-200" />
             <button onClick={runSchemaValidation} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-[var(--brand)] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[var(--brand-hover)] active:scale-[0.99]"><ShieldCheck size={16} /> Validate current document</button>
-            {schemaError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{schemaError}</div>}
+            {schemaError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600 dark:border-rose-950 dark:bg-rose-950/40 dark:text-rose-400">{schemaError}</div>}
             {schemaIssues && (
               <div className="mt-3 min-h-0 flex-1 overflow-auto">
                 {schemaIssues.length === 0 ? (
-                  <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">✓ Document matches the schema.</div>
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:border-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-400">✓ Document matches the schema.</div>
                 ) : (
                   <div className="space-y-2">
                     {schemaIssues.map((issue, index) => (
-                      <div key={index} className="rounded-lg border border-rose-100 bg-rose-50 p-2.5 text-xs">
-                        <span className="font-mono font-bold text-rose-700">{issue.path}</span>
-                        <span className="ml-2 text-rose-600">{issue.message}</span>
+                      <div key={index} className="rounded-lg border border-rose-100 bg-rose-50 p-2.5 text-xs dark:border-rose-950 dark:bg-rose-950/40">
+                        <span className="font-mono font-bold text-rose-700 dark:text-rose-400">{issue.path}</span>
+                        <span className="ml-2 text-rose-600 dark:text-rose-300">{issue.message}</span>
                       </div>
                     ))}
                   </div>
@@ -2889,17 +3348,17 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
       {codegenOpen && (
         <div onClick={() => setCodegenOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Generate code from JSON</p><button onClick={() => setCodegenOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800 dark:text-white">Generate code from JSON</p><button onClick={() => setCodegenOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Typed models generated from your document — runs entirely in your browser, nothing is uploaded.</p>
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Language</span>
-                <select value={codegenLangIndex} onChange={(event) => { setCodegenLangIndex(Number(event.target.value)); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+                <select value={codegenLangIndex} onChange={(event) => { setCodegenLangIndex(Number(event.target.value)); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                   {CODEGEN_LANGUAGES.map((lang, index) => <option key={`${lang.id}-${index}`} value={index}>{lang.label}</option>)}
                 </select>
               </label>
               <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Root type name</span>
-                <input value={codegenRootName} onChange={(event) => setCodegenRootName(event.target.value)} placeholder="Root" className="w-40 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]" />
+                <input value={codegenRootName} onChange={(event) => setCodegenRootName(event.target.value)} placeholder="Root" className="w-40 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white" />
               </label>
               <button onClick={runCodegen} disabled={codegenLoading} className="flex items-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{codegenLoading ? <Loader2 size={16} className="animate-spin" /> : <FileCode2 size={16} />} Generate</button>
               {codegenOutput && !codegenLoading && (
@@ -2909,12 +3368,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 </div>
               )}
             </div>
-            {codegenError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{codegenError}</div>}
-            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)]">
+            {codegenError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600 dark:border-rose-950 dark:bg-rose-950/40 dark:text-rose-400">{codegenError}</div>}
+            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] dark:border-[#30363d]">
               {codegenLoading ? (
                 <div className="flex h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 size={16} className="animate-spin" /> Generating…</div>
               ) : codegenOutput ? (
-                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700">{codegenOutput}</pre>
+                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700 dark:text-slate-200">{codegenOutput}</pre>
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-slate-400">Choose a language and click Generate.</div>
               )}
@@ -2925,15 +3384,15 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
       {convertOpen && (
         <div onClick={() => setConvertOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800">Convert format</p><button onClick={() => setConvertOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button></div>
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
+            <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800 dark:text-white">Convert format</p><button onClick={() => setConvertOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Convert between JSON and YAML, XML, or TOML — entirely in your browser.</p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div className="flex overflow-hidden rounded-lg border border-[var(--edge)]">
-                <button onClick={() => { setConvertDirection("to"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "to" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500"}`}>JSON →</button>
-                <button onClick={() => { setConvertDirection("from"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "from" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500"}`}>→ JSON</button>
+              <div className="flex overflow-hidden rounded-lg border border-[var(--edge)] dark:border-[#30363d]">
+                <button onClick={() => { setConvertDirection("to"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "to" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 dark:bg-[var(--surface-soft)] dark:text-slate-300"}`}>JSON →</button>
+                <button onClick={() => { setConvertDirection("from"); setConvertOutput(""); setConvertError(""); }} className={`px-3 py-1.5 text-xs font-bold transition ${convertDirection === "from" ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 dark:bg-[var(--surface-soft)] dark:text-slate-300"}`}>→ JSON</button>
               </div>
-              <select value={convertFormatId} onChange={(event) => { setConvertFormatId(event.target.value as ConvertFormat); setConvertOutput(""); setConvertError(""); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)]">
+              <select value={convertFormatId} onChange={(event) => { setConvertFormatId(event.target.value as ConvertFormat); setConvertOutput(""); setConvertError(""); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                 {CONVERT_FORMATS.map((format) => <option key={format.id} value={format.id}>{format.label}</option>)}
               </select>
               <button onClick={runConvert} className="flex items-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white"><FileJson2 size={16} /> Convert</button>
@@ -2946,12 +3405,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               )}
             </div>
             {convertDirection === "from" && (
-              <textarea value={convertInput} onChange={(event) => setConvertInput(event.target.value)} placeholder={`Paste ${convertFormatInfo().label} here…`} spellCheck={false} className="mt-3 h-32 w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3 font-mono text-xs outline-none focus:border-[var(--brand-border)]" />
+              <textarea value={convertInput} onChange={(event) => setConvertInput(event.target.value)} placeholder={`Paste ${convertFormatInfo().label} here…`} spellCheck={false} className="mt-3 h-32 w-full resize-none rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] p-3 font-mono text-xs outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:text-slate-200" />
             )}
-            {convertError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600">{convertError}</div>}
-            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)]">
+            {convertError && <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-600 dark:border-rose-950 dark:bg-rose-950/40 dark:text-rose-400">{convertError}</div>}
+            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--edge)] bg-[var(--surface-soft)] dark:border-[#30363d]">
               {convertOutput ? (
-                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700">{convertOutput}</pre>
+                <pre className="overflow-auto p-4 font-mono text-xs leading-5 text-slate-700 dark:text-slate-200">{convertOutput}</pre>
               ) : (
                 <div className="flex h-32 items-center justify-center text-sm text-slate-400">{convertDirection === "to" ? "Click Convert to turn the current JSON into " + convertFormatInfo().label + "." : "Paste " + convertFormatInfo().label + " above and click Convert."}</div>
               )}
@@ -2962,16 +3421,16 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
       {historyOpen && (
         <div onClick={() => setHistoryOpen(false)} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl">
+          <div onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-bold text-slate-800">Version history</p>
+                <p className="text-lg font-bold text-slate-800 dark:text-white">Version history</p>
                 <p className="mt-0.5 text-xs text-slate-400">{documentName} · 30-day retention sweet spot (local)</p>
               </div>
-              <button onClick={() => setHistoryOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button>
+              <button onClick={() => setHistoryOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button>
             </div>
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-teal-200/80 bg-teal-50/70 px-3.5 py-2 text-xs font-semibold text-teal-800">
-              <span className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-teal-600" /> Retention Sweet Spot: Versions from the last 30 days (up to 30 snapshots) are kept locally.</span>
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-teal-200/80 bg-teal-50/70 px-3.5 py-2 text-xs font-semibold text-teal-800 dark:border-teal-950 dark:bg-teal-950/40 dark:text-teal-300">
+              <span className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-teal-600 dark:text-teal-400" /> Retention Sweet Spot: Versions from the last 30 days (up to 30 snapshots) are kept locally.</span>
               <span className="font-bold">{historyVersions.length}/30</span>
             </div>
             <div className="mt-4 min-h-0 flex-1 overflow-auto">
@@ -2983,10 +3442,10 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     const changes = versionDiffCount(version);
                     const isCurrent = index === 0 && version.content === json;
                     return (
-                      <div key={version.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--edge)] p-3 transition-colors hover:border-slate-300">
+                      <div key={version.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--edge)] p-3 transition-colors hover:border-slate-300 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:border-slate-600">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-700">{relativeTime(version.savedAt)}</span>
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{relativeTime(version.savedAt)}</span>
                             {isCurrent && <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand)]">current</span>}
                           </div>
                           <p className="mt-0.5 text-[11px] text-slate-400">{new Date(version.savedAt).toLocaleString()} · {(version.size / 1024).toFixed(1)} KB · {version.content.split("\n").length} lines{changes !== null && !isCurrent ? ` · ${changes} value${changes === 1 ? "" : "s"} differ from current` : ""}</p>
@@ -2998,7 +3457,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                               <button onClick={() => restoreVersion(version)} className="tool-button h-8 px-2.5 text-[11px]"><RotateCcw size={13} /> Restore</button>
                             </>
                           )}
-                          <button onClick={() => removeSingleVersion(version)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Delete this snapshot" title="Delete this version">
+                          <button onClick={() => removeSingleVersion(version)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400" aria-label="Delete this snapshot" title="Delete this version">
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -3011,7 +3470,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             {historyVersions.length > 0 && (
               <div className="mt-3 flex items-center justify-between border-t border-[var(--edge-soft)] pt-3">
                 <span className="text-[11px] text-slate-400 font-medium">Older versions auto-expire after 30 days.</span>
-                <button onClick={clearDocHistory} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"><Trash2 size={14} /> Clear history</button>
+                <button onClick={clearDocHistory} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"><Trash2 size={14} /> Clear history</button>
               </div>
             )}
           </div>
@@ -3047,6 +3506,83 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
           </div>
         </div>
       )}
+
+      {/* Main App Footer */}
+      <footer className="mt-12 border-t border-[var(--edge)] bg-white px-6 py-8 dark:border-[#30363d] dark:bg-[var(--surface)]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--ink-solid)] text-white shadow-sm">
+              <Braces size={20} strokeWidth={2.6} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-slate-800 dark:text-white tracking-tight">JSONote</span>
+                <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold text-[var(--brand)] border border-teal-500/20">
+                  Free & 100% Private
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">The JSON editor that remembers. Built for developers with ❤️</p>
+            </div>
+          </div>
+
+          {/* Social & Contact Links */}
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {/* Email */}
+            <a
+              href="mailto:chennadvp7799@gmail.com"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:border-[#30363d] dark:bg-[var(--surface-soft)]"
+            >
+              <Mail size={15} className="text-[var(--brand)]" />
+              <span>chennadvp7799@gmail.com</span>
+            </a>
+
+            {/* LinkedIn */}
+            <a
+              href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-sky-950/40 dark:hover:text-sky-400"
+            >
+              <Globe size={15} className="text-sky-500" />
+              <span>LinkedIn</span>
+              <ExternalLink size={11} className="text-slate-400" />
+            </a>
+
+            {/* GitHub */}
+            <a
+              href="https://github.com/chenna8464"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <Code2 size={15} className="text-slate-700 dark:text-slate-300" />
+              <span>GitHub</span>
+              <ExternalLink size={11} className="text-slate-400" />
+            </a>
+
+            {/* Medium */}
+            <a
+              href="https://medium.com/@chennadvp7799"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+            >
+              <FileText size={15} className="text-emerald-600 dark:text-emerald-400" />
+              <span>Medium</span>
+              <ExternalLink size={11} className="text-slate-400" />
+            </a>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-6 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-[var(--edge-soft)] pt-4 text-[11px] text-slate-400 sm:flex-row">
+          <p>© {new Date().getFullYear()} JSONote by Chenna Kesava Reddy Devapatla. All data encrypted locally — zero server uploads.</p>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setFaqOpen(true)} className="hover:text-[var(--brand)]">FAQ & Guide</button>
+            <button onClick={() => setTourOpen(true)} className="hover:text-[var(--brand)]">Take a Tour</button>
+            <button onClick={() => setHelpOpen(true)} className="hover:text-[var(--brand)]">Contact Support</button>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

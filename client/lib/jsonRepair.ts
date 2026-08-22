@@ -7,6 +7,59 @@ export type RepairResult = {
 };
 
 /**
+ * Fix key quote defects before colons, such as:
+ * `"version: "2.4.0",` (missing closing quote on key) or
+ * `path": "/api/v1/users/:id` (missing opening quote on key).
+ */
+function preprocessKeyQuoteDefects(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const processed = lines.map((line) => {
+    // 1. Missing closing quote on key: `  "key: "val"` -> `  "key": "val"`
+    let l = line.replace(/^(\s*)(["'])([A-Za-z0-9_$-]+)\s*:\s*(.*)$/, (match, indent, quote, key, rest) => {
+      return `${indent}${quote}${key}${quote}: ${rest}`;
+    });
+    // 2. Missing opening quote on key: `  key": "val"` -> `  "key": "val"`
+    l = l.replace(/^(\s*)([A-Za-z0-9_$-]+)(["']):\s*(.*)$/, (match, indent, key, quote, rest) => {
+      return `${indent}${quote}${key}${quote}: ${rest}`;
+    });
+    return l;
+  });
+  return processed.join("\n");
+}
+
+/**
+ * Fix unclosed string values at line end before a new key or bracket line, such as:
+ * `"method": "PATCH` followed by `path": "/api/v1/users/:id`
+ */
+function preprocessUnclosedStringValues(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const processed: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // Match a line with key: "unclosedValue where value quote is not closed
+    const unclosedMatch = line.match(/^(\s*"?[A-Za-z0-9_$-]+"?\s*:\s*")([^"\r\n]*)$/);
+    if (unclosedMatch) {
+      let nextLineIdx = i + 1;
+      while (nextLineIdx < lines.length && lines[nextLineIdx].trim() === "") {
+        nextLineIdx++;
+      }
+      if (nextLineIdx < lines.length) {
+        const nextLine = lines[nextLineIdx].trim();
+        // If next line starts with a key name or closing bracket/brace
+        if (/^"?[A-Za-z0-9_$-]+"?\s*:|^[\}\]]/.test(nextLine)) {
+          line = `${line}",`;
+        }
+      }
+    }
+    processed.push(line);
+  }
+
+  return processed.join("\n");
+}
+
+/**
  * Preprocess structural issues in malformed JSON such as missing opening `{` or `[`
  * after key colons (`"key":`).
  */
@@ -75,7 +128,9 @@ export function repairJson(source: string, indent = 2): RepairResult {
     // fall through
   }
 
-  const preprocessed = preprocessStructuralMissingContainers(source);
+  const fixedKeyQuotes = preprocessKeyQuoteDefects(source);
+  const fixedStringValues = preprocessUnclosedStringValues(fixedKeyQuotes);
+  const preprocessed = preprocessStructuralMissingContainers(fixedStringValues);
 
   // Attempt 1: Valid JSON after structural container preprocessing
   try {
