@@ -1,7 +1,7 @@
-# JSONote — https://jsonnote.com
+# JSONDesk — https://jsondesk.com
 # The app is a single public page; all crawlers welcome.
 
 User-agent: *
 Allow: /
 
-Sitemap: https://jsonnote.com/sitemap.xml
+Sitemap: https://jsondesk.com/sitemap.xml

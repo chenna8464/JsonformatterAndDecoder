@@ -62,6 +62,7 @@ import {
   Camera,
   PictureInPicture,
   Layers,
+  Bug,
 } from "lucide-react";
 
 const initialJson = `{
@@ -550,16 +551,16 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "collaboration-workspaces",
     category: "general",
     categoryLabel: "Getting Started",
-    question: "How do Workspaces and team collaboration work?",
-    answer: "JSONote supports both Personal and Team workspaces. You can switch or create workspaces from the top-left dropdown menu, organizing related JSON documents and notes together. You can also export full workspace JSON archives or generate encrypted snapshot URLs to share annotated JSON states.",
+    question: "How do Personal and Team workspaces work in JSONDesk?",
+    answer: "JSONDesk supports both Personal and Team workspaces. You can switch or create workspaces from the top-left dropdown menu, organizing related JSON documents and notes together. You can also export full workspace JSON archives or generate encrypted snapshot URLs to share annotated JSON states.",
     tags: ["workspaces", "team", "organization", "projects"]
   },
   {
     id: "auto-repair",
     category: "repair",
     categoryLabel: "JSON Repair & Syntax",
-    question: "How does Automatic JSON Repair work?",
-    answer: "When you paste invalid JSON (such as Python dictionaries with single quotes 'key': 'val', missing quotes around object keys, trailing commas [1, 2, 3,], unescaped newlines, or C-style // comments), JSONote's tolerant parser automatically repairs the syntax into strict RFC-8259 compliant JSON when you click Format or press Cmd/Ctrl + Shift + F.",
+    question: "How does JSONDesk automatically repair broken JSON?",
+    answer: "When you paste invalid JSON (such as Python dictionaries with single quotes 'key': 'val', missing quotes around object keys, trailing commas [1, 2, 3,], unescaped newlines, or C-style // comments), JSONDesk's tolerant parser automatically repairs the syntax into strict RFC-8259 compliant JSON when you click Format or press Cmd/Ctrl + Shift + F.",
     tags: ["repair", "format", "single quotes", "trailing commas", "comments", "syntax"]
   },
   {
@@ -574,24 +575,24 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "syntax-diagnostics",
     category: "repair",
     categoryLabel: "JSON Repair & Syntax",
-    question: "What happens when JSON has unrepairable syntax errors?",
-    answer: "JSONote displays real-time diagnostics pinpointing the exact line number, column offset, and unexpected token causing the syntax error, highlighting the error location directly inside the CodeMirror editor.",
+    question: "How does line error diagnostic highlighting work?",
+    answer: "JSONDesk displays real-time diagnostics pinpointing the exact line number, column offset, and unexpected token causing the syntax error, highlighting the error location directly inside the CodeMirror editor.",
     tags: ["diagnostics", "errors", "syntax error", "linting"]
   },
   {
     id: "interactive-views",
     category: "views",
     categoryLabel: "Views & Querying",
-    question: "What are the 5 interactive views available in JSONote?",
-    answer: "JSONote features 5 specialized views: Editor View (CodeMirror 6 editor with line notes), Tree View (interactive expandable AST node tree with level depth selectors), Query View (expressive path filter evaluator), Table View (spreadsheet grid representation of array elements with column sorting), and Graph View (interactive 2D/3D node-link graph diagram with physics simulation and SVG/PNG export).",
+    question: "What are the 5 interactive views available in JSONDesk?",
+    answer: "JSONDesk features 5 specialized views: Editor View (CodeMirror 6 editor with line notes), Tree View (interactive expandable AST node tree with level depth selectors), Query View (expressive path filter evaluator), Table View (spreadsheet grid representation of array elements with column sorting), and Graph View (interactive 2D/3D node-link graph diagram with physics simulation and SVG/PNG export).",
     tags: ["views", "tree view", "table view", "graph view", "query view", "editor"]
   },
   {
     id: "query-path",
     category: "views",
     categoryLabel: "Views & Querying",
-    question: "How do I query JSON with path expressions in Query View?",
-    answer: "In Query View, you can type selectors like endpoints[*].name, items[?auth=true].path, or settings.*. JSONote evaluates the path in real-time, displays all matching sub-trees, and provides 1-click copy controls for filtered results.",
+    question: "How do I filter JSON using JSONPath selectors in Query View?",
+    answer: "In Query View, you can type selectors like endpoints[*].name, items[?auth=true].path, or settings.*. JSONDesk evaluates the path in real-time, displays all matching sub-trees, and provides 1-click copy controls for filtered results.",
     tags: ["query", "jsonpath", "filtering", "search", "paths"]
   },
   {
@@ -614,48 +615,48 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "code-models",
     category: "convert",
     categoryLabel: "Conversion & Codegen",
-    question: "How do I generate code models (TypeScript, Go, Python, Rust, Java, C#)?",
-    answer: "Click 'Generate Code' in the header tool menu. JSONote instantly infers the schema from your active JSON payload and generates strongly-typed model definitions for TypeScript (interfaces/types), Go (structs with json tags), Python (Pydantic models / TypedDict), Rust (Serde structs), Java (POJOs), or C# (Classes).",
+    question: "How do I generate TypeScript, Go, Python, or Rust models from JSON?",
+    answer: "Click 'Generate Code' in the header tool menu. JSONDesk instantly infers the schema from your active JSON payload and generates strongly-typed model definitions for TypeScript (interfaces/types), Go (structs with json tags), Python (Pydantic models / TypedDict), Rust (Serde structs), Java (POJOs), or C# (Classes).",
     tags: ["codegen", "typescript", "golang", "python", "rust", "java", "csharp"]
   },
   {
     id: "revision-history",
     category: "history",
     categoryLabel: "History & Snapshots",
-    question: "How does automatic Revision History work?",
-    answer: "JSONote automatically records a revision snapshot whenever you format, repair, or make significant edits to your document. Click 'History' in the subheader to view past timestamps, diff changes, restore previous versions, or label revision milestones.",
+    question: "How does local on-device version history work?",
+    answer: "JSONDesk automatically records a revision snapshot whenever you format, repair, or make significant edits to your document. Click 'History' in the subheader to view past timestamps, diff changes, restore previous versions, or label revision milestones.",
     tags: ["history", "revisions", "version control", "diff", "undo"]
   },
   {
     id: "shareable-snapshots",
     category: "history",
     categoryLabel: "History & Snapshots",
-    question: "Are Shareable Snapshot links secure?",
-    answer: "Yes! When you click 'Share Snapshot', JSONote compresses your JSON payload into a URL hash fragment (#snapshot=...) using DEFLATE compression. Because the data is stored in the URL hash, server-side HTTP logs never receive or store your confidential JSON payload.",
+    question: "How does 100% private URL hash snapshot sharing work?",
+    answer: "Yes! When you click 'Share Snapshot', JSONDesk compresses your JSON payload into a URL hash fragment (#snapshot=...) using DEFLATE compression. Because the data is stored in the URL hash, server-side HTTP logs never receive or store your confidential JSON payload.",
     tags: ["snapshots", "sharing", "privacy", "url", "compression"]
   },
   {
     id: "data-privacy",
     category: "privacy",
     categoryLabel: "Privacy & Security",
-    question: "Is my JSON data uploaded or stored on any external server?",
-    answer: "No. All JSON parsing, formatting, repair, view rendering, query evaluations, and note storage occur 100% locally inside your browser's V8 engine and LocalStorage. Your data never leaves your device.",
+    question: "Is my JSON data kept private and secure?",
+    answer: "Yes, 100%. All JSON formatting, linting, graph rendering, code generation, and share snapshot compression run entirely client-side inside your browser. No JSON payloads are ever sent to any remote server.",
     tags: ["privacy", "security", "local", "browser", "data safety"]
   },
   {
     id: "large-files",
     category: "privacy",
     categoryLabel: "Privacy & Security",
-    question: "What is the maximum JSON file size JSONote can handle?",
-    answer: "JSONote is built with virtualized line rendering and efficient AST memory management. It comfortably handles large JSON files up to 50MB+ in size without crashing or freezing the browser UI.",
+    question: "What is the maximum JSON file size JSONDesk can handle?",
+    answer: "JSONDesk is built with virtualized line rendering and efficient AST memory management. It comfortably handles large JSON files up to 50MB+ in size without crashing or freezing the browser UI.",
     tags: ["large files", "performance", "memory", "50MB"]
   },
   {
     id: "offline-support",
     category: "privacy",
     categoryLabel: "Privacy & Security",
-    question: "Does JSONote work offline without an internet connection?",
-    answer: "Yes! JSONote is a fully self-contained Single Page Application (SPA). Once loaded, it works 100% offline without requiring an active internet connection.",
+    question: "Does JSONDesk work offline without an internet connection?",
+    answer: "Yes! JSONDesk is a fully self-contained Single Page Application (SPA). Once loaded, it works 100% offline without requiring an active internet connection.",
     tags: ["offline", "pwa", "no internet", "browser"]
   }
 ];
@@ -695,10 +696,15 @@ export default function Index() {
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqSearch, setFaqSearch] = useState("");
   const [faqCategory, setFaqCategory] = useState<string>("all");
-  const [expandedFaqId, setExpandedFaqId] = useState<string | null>("what-is-jsonote");
+  const [expandedFaqId, setExpandedFaqId] = useState<string | null>("what-is-json-desk");
   const [tourOpen, setTourOpen] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
+  const [simulateError, setSimulateError] = useState(false);
+
+  if (simulateError) {
+    throw new Error("Test Exception: High traffic volume simulated for JSONDesk Error Boundary & Alert System.");
+  }
   const pipWindowRef = useRef<Window | null>(null);
   const [helpTab, setHelpTab] = useState<"query" | "contact" | "faq">("query");
   const [supportName, setSupportName] = useState("");
@@ -740,7 +746,7 @@ export default function Index() {
 
   // Automatic Spotify / Google Meet style Overlay detection:
   // When developer switches away to another tab or application (VS Code, Terminal, Postman),
-  // automatically show the floating mini-editor overlay! When returning to JSONote tab, auto-dock/close it.
+  // automatically show the floating mini-editor overlay! When returning to JSONDesk tab, auto-dock/close it.
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -775,7 +781,7 @@ export default function Index() {
           height: 540,
         });
 
-        pipWin.document.title = "JSONote — Floating Mini-Editor";
+        pipWin.document.title = "JSONDesk — Floating Mini-Editor";
         pipWin.document.body.style.margin = "0";
         pipWin.document.body.style.padding = "10px";
         pipWin.document.body.style.background = "#0f172a";
@@ -786,7 +792,7 @@ export default function Index() {
           <div style="display:flex; flex-direction:column; height:calc(100vh - 20px); gap:8px; font-family:system-ui,-apple-system,sans-serif;">
             <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid #334155;">
               <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-weight:bold; font-size:13px; color:#38bdf8;">📌 JSONote Mini</span>
+                <span style="font-weight:bold; font-size:13px; color:#38bdf8;">📌 JSONDesk Mini</span>
                 <span id="pip-status" style="font-size:10px; padding:2px 6px; border-radius:99px; background:#065f46; color:#34d399; font-weight:bold;">Valid</span>
               </div>
               <div style="display:flex; gap:6px;">
@@ -796,7 +802,7 @@ export default function Index() {
             </div>
             <textarea id="pip-text" style="flex:1; width:100%; background:#020617; color:#f8fafc; border:1px solid #334155; border-radius:8px; padding:10px; font-family:monospace; font-size:12px; resize:none; outline:none; box-sizing:border-box; line-height:1.5;"></textarea>
             <div style="font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">
-              <span>⚡ Live two-way sync with main JSONote</span>
+              <span>⚡ Live two-way sync with main JSONDesk</span>
               <span id="pip-lines">0 lines</span>
             </div>
           </div>
@@ -889,7 +895,7 @@ export default function Index() {
     const snippet = supportIncludeJson ? json.slice(0, 1200) : undefined;
     const refId = `Q-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const mailSubject = encodeURIComponent(`[JSONote Query #${refId}] ${supportSubject || supportCategory}`);
+    const mailSubject = encodeURIComponent(`[JSONDesk Query #${refId}] ${supportSubject || supportCategory}`);
     const mailBodyText = `Name: ${supportName}
 Email: ${supportEmail}
 Category: ${supportCategory}
@@ -1855,12 +1861,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     <main className="min-h-screen bg-[var(--surface-page)] text-[var(--ink)]">
       <header className="flex h-[76px] items-center justify-between border-b border-[var(--edge)] bg-white px-5 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink-solid)] text-white shadow-[0_8px_20px_var(--neutral-shadow)]">
-            <Braces size={22} strokeWidth={2.6} />
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-white shadow-[0_4px_12px_var(--brand-shadow)]">
+            <Braces size={20} strokeWidth={2.6} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-[17px] font-bold tracking-[-0.03em]">JSONote</h1>
+              <h1 className="text-[17px] font-bold tracking-[-0.03em]">JSONDesk</h1>
             </div>
             <p className="text-xs font-medium text-slate-400">The JSON editor that remembers.</p>
           </div>
@@ -2206,27 +2212,90 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   </div>
                 </div>
               )}
-              <div className="flex items-center justify-between border-b border-[var(--edge)] px-5 py-3">
-                <div className="flex items-center gap-4">
-                  <button onClick={() => { setView("editor"); setCompareOpen(false); }} className={view === "editor" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Editor</button>
-                  <button onClick={() => { setView("tree"); setCompareOpen(false); }} className={view === "tree" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Tree view</button>
-                  <button onClick={() => { setView("query"); setCompareOpen(false); }} className={view === "query" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Query</button>
-                  <button onClick={() => { setView("table"); setCompareOpen(false); }} className={view === "table" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}>Table</button>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--edge)] bg-white px-5 py-2.5 dark:bg-[var(--surface)]">
+                {/* Segmented Pill View Switcher Bar */}
+                <div className="flex items-center gap-1 rounded-xl border border-[var(--edge-soft)] bg-[var(--surface-soft)] p-1 dark:bg-slate-900/60">
+                  <button
+                    onClick={() => { setView("editor"); setCompareOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      view === "editor" && !compareOpen
+                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    }`}
+                  >
+                    <FileCode2 size={14} />
+                    <span>Editor</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setView("tree"); setCompareOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      view === "tree" && !compareOpen
+                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    }`}
+                  >
+                    <Braces size={14} />
+                    <span>Tree</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setView("query"); setCompareOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      view === "query" && !compareOpen
+                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    }`}
+                  >
+                    <TerminalSquare size={14} />
+                    <span>Query</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setView("table"); setCompareOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      view === "table" && !compareOpen
+                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    }`}
+                  >
+                    <TableIcon size={14} />
+                    <span>Table</span>
+                  </button>
+
                   <button
                     onClick={() => { setView("graph"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 transition-all ${view === "graph" ? "tab-active font-bold text-[var(--brand)]" : "text-sm font-semibold text-slate-400 hover:text-slate-700"}`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      view === "graph" && !compareOpen
+                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    }`}
                   >
                     <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                    <span>Graph</span>
+                    <span>Graph 2D/3D</span>
                   </button>
                 </div>
-                <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
-                  <button onClick={copyJson} className="tool-button h-7 px-2.5 text-[11px] font-bold border-[var(--edge)] hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] transition-all" title="Copy JSON payload to clipboard">
-                    {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                    {copied ? "Copied!" : "Copy"}
+
+                {/* Quick Action Badges */}
+                <div className="flex items-center gap-2.5 text-xs font-medium text-slate-400">
+                  <button
+                    onClick={copyJson}
+                    className="tool-button h-8 px-3 text-xs font-bold transition-all active:scale-95"
+                    title="Copy JSON payload to clipboard"
+                  >
+                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                    <span>{copied ? "Copied!" : "Copy Payload"}</span>
                   </button>
-                  <span>{lineCount} lines</span>
-                  <button onClick={() => setFullscreen((current) => !current)} className="text-slate-500 hover:text-slate-900" aria-label={fullscreen ? "Exit full screen" : "Full screen"}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+                  <span className="rounded-full bg-[var(--surface-soft)] border border-[var(--edge)] px-2.5 py-1 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
+                    {lineCount} lines
+                  </span>
+                  <button
+                    onClick={() => setFullscreen((current) => !current)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white"
+                    aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+                  >
+                    {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  </button>
                 </div>
               </div>
               <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--surface-soft)]">
@@ -2473,7 +2542,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <Braces size={20} />
                 </span>
                 <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  JSONote
+                  JSONDesk
                 </span>
                 <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--brand)]">
                   BETA
@@ -2488,7 +2557,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               {/* Communication Links */}
               <div className="flex items-center gap-2 pt-2">
                 {[
-                  { icon: Mail, label: "Direct Email", href: "https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry" },
+                  { icon: Mail, label: "Direct Email", href: "https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" },
                   { icon: MessageCircle, label: "WhatsApp Support", href: "https://wa.me/919398548188" },
                   { icon: Phone, label: "Direct Call", href: "tel:+919398548188" },
                 ].map((item) => (
@@ -2540,7 +2609,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 <li><button onClick={() => { setHelpTab("query"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Submit a Query</button></li>
                 <li><button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Get in Touch</button></li>
                 <li><button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Shortcuts & FAQ</button></li>
-                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">chennadvp7799@gmail.com</a></li>
+                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">chennadvp7799@gmail.com</a></li>
                 <li><a href="https://wa.me/919398548188" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">+91 9398548188</a></li>
               </ul>
             </div>
@@ -2548,7 +2617,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
           {/* Bottom Copyright Bar */}
           <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-[var(--edge-soft)] pt-6 text-xs text-slate-400 sm:flex-row">
-            <p>© {new Date().getFullYear()} JSONote. All rights reserved. 100% Client-side privacy.</p>
+            <p>© {new Date().getFullYear()} JSONDesk. All rights reserved. 100% Client-side privacy.</p>
             <div className="flex items-center gap-4 text-[11px]">
               <button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Client-Side Privacy</button>
               <span>•</span>
@@ -2559,7 +2628,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
         {/* Large Subtle Background Watermark */}
         <div className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 select-none text-[70px] font-black tracking-widest text-slate-200/40 dark:text-slate-800/20 sm:text-[110px] md:text-[140px]">
-          JSONote
+          JSONDesk
         </div>
       </footer>
 
@@ -2573,7 +2642,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <Sparkles size={22} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">JSONote Features Walkthrough</h3>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">JSONDesk Features Walkthrough</h3>
                   <p className="text-xs text-slate-400">Explore core features designed for high-productivity JSON editing and review.</p>
                 </div>
               </div>
@@ -3196,15 +3265,15 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
               {helpTab === "faq" && (
                 <div className="space-y-4">
-                  {/* Why JSONote & Differentiation */}
+                  {/* Why JSONDesk & Differentiation */}
                   <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
                     <h5 className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white">
-                      <Sparkles size={16} className="text-[var(--brand)]" /> Why JSONote? What Makes It Different?
+                      <Sparkles size={16} className="text-[var(--brand)]" /> Why JSONDesk? What Makes It Different?
                     </h5>
                     <div className="mt-3 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">🔒 100% Client-Side Privacy</p>
-                        <p className="mt-0.5 text-slate-500">Unlike typical formatters that transmit your confidential JSON payloads to remote servers, JSONote executes all formatting, auto-repair, schema validation, and graph generation 100% locally in your browser.</p>
+                        <p className="mt-0.5 text-slate-500">Unlike typical formatters that transmit your confidential JSON payloads to remote servers, JSONDesk executes all formatting, auto-repair, schema validation, and graph generation 100% locally in your browser.</p>
                       </div>
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">💬 Contextual Line Notes & @Mentions</p>
@@ -3264,6 +3333,23 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           <span className="rounded-md bg-[var(--brand-soft)] px-2 py-1 font-mono text-[11px] font-semibold text-[var(--brand)]">{keys}</span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Dev Test Error Screen Trigger */}
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 dark:border-rose-950 dark:bg-rose-950/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-rose-700 dark:text-rose-300">⚡ Test Error & Email Alert System</p>
+                        <p className="text-[11px] text-slate-500">Preview what users see if an unhandled runtime error happens during high traffic.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSimulateError(true)}
+                        className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-500"
+                      >
+                        <Bug size={13} /> Test Error UI
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3516,12 +3602,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-slate-800 dark:text-white tracking-tight">JSONote</span>
+                <span className="text-base font-bold text-slate-800 dark:text-white tracking-tight">JSONDesk</span>
                 <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold text-[var(--brand)] border border-teal-500/20">
                   Free & 100% Private
                 </span>
               </div>
-              <p className="text-xs text-slate-400">The JSON editor that remembers. Built for developers with ❤️</p>
+              <p className="text-xs text-slate-400">The privacy-first JSON workspace for developers. Built with ❤️</p>
             </div>
           </div>
 
@@ -3575,7 +3661,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
         </div>
 
         <div className="mx-auto mt-6 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-[var(--edge-soft)] pt-4 text-[11px] text-slate-400 sm:flex-row">
-          <p>© {new Date().getFullYear()} JSONote by Chenna Kesava Reddy Devapatla. All data encrypted locally — zero server uploads.</p>
+          <p>© {new Date().getFullYear()} JSONDesk by Chenna Kesava Reddy Devapatla. All data encrypted locally — zero server uploads.</p>
           <div className="flex items-center gap-4">
             <button onClick={() => setFaqOpen(true)} className="hover:text-[var(--brand)]">FAQ & Guide</button>
             <button onClick={() => setTourOpen(true)} className="hover:text-[var(--brand)]">Take a Tour</button>

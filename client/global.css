@@ -27,8 +27,7 @@
     --ring: 171 77% 34%;
     --radius: 0.75rem;
 
-    /* JSONote app tokens — light. Mirrors the hex values the UI was built
-       with, so light mode is pixel-identical to before theming existed. */
+    /* JSONDesk app tokens — light */
     --surface-page: #f6f7fb;
     --surface: #ffffff;
     --surface-soft: #fafbfc;
@@ -56,13 +55,11 @@
     --cm-active-line: rgba(15, 118, 110, 0.04);
     --cm-selection-match: #fef3c7;
     --brand-ring: rgba(15, 118, 110, 0.4);
-    --brand-shadow: rgba(99, 102, 241, 0.25);
+    --brand-shadow: rgba(15, 118, 110, 0.2);
 
-    /* Fixed brand-mark tokens — intentionally NOT overridden under .dark, so
-       the logo and a couple of solid "always dark" buttons keep their look
-       regardless of theme instead of inheriting --ink's light/dark flip. */
+    /* Fixed brand-mark tokens */
     --ink-solid: #172033;
-    --neutral-shadow: rgba(100, 116, 139, 0.35);
+    --neutral-shadow: rgba(100, 116, 139, 0.25);
   }
 
   .dark {
@@ -86,7 +83,7 @@
     --input: 222 20% 20%;
     --ring: 168 60% 42%;
 
-    /* JSONote app tokens — dark */
+    /* JSONDesk app tokens — dark */
     --surface-page: #0d1117;
     --surface: #161b22;
     --surface-soft: #1c2129;
@@ -117,7 +114,12 @@
   }
 
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; font-family: "Manrope", sans-serif; }
+  body { 
+    @apply bg-background text-foreground; 
+    font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   button, input, textarea, select { font: inherit; }
 
   /* Dark mode scrollbars */
@@ -138,23 +140,64 @@
 }
 
 @layer components {
-  .app-focus { @apply outline-none transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] active:scale-[0.97]; }
-  .header-button { @apply app-focus flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; }
-  .sidebar-link { @apply app-focus flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; }
-  .sidebar-link-active { @apply bg-[var(--brand-soft)] text-[var(--brand)]; }
-  .dark .sidebar-link-active { background-color: rgba(45, 212, 191, 0.14) !important; color: #2dd4bf !important; border: 1px solid rgba(45, 212, 191, 0.30); }
-  .recent-link { @apply app-focus flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-500 transition hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; }
-  .menu-item { @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] dark:text-slate-300; }
-  .menu-hint { @apply justify-self-end whitespace-nowrap text-[10px] font-medium text-slate-400 dark:text-slate-500; }
-  .tool-button { @apply app-focus flex h-9 items-center gap-2 rounded-lg border border-[var(--edge)] bg-[var(--surface)] px-3 text-xs font-bold text-slate-600 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-[var(--brand-soft-hover)] dark:hover:text-[var(--brand)]; }
-  .tab-active { @apply relative text-sm font-bold text-[var(--brand)] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[var(--brand)]; }
+  /* Bespoke Human-Crafted Component Classes */
+  .app-focus { 
+    @apply outline-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] active:scale-[0.98]; 
+  }
+  
+  .header-button { 
+    @apply app-focus flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-xs font-bold text-slate-600 transition hover:border-[var(--edge)] hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-300 dark:hover:border-[var(--edge)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  }
+
+  .sidebar-link { 
+    @apply app-focus flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:border-[var(--edge-soft)] hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  }
+
+  .sidebar-link-active { 
+    @apply border-[var(--brand-soft-border)] bg-[var(--brand-soft)] text-[var(--brand)] shadow-sm; 
+  }
+
+  .dark .sidebar-link-active { 
+    background-color: rgba(45, 212, 191, 0.14) !important; 
+    color: #2dd4bf !important; 
+    border: 1px solid rgba(45, 212, 191, 0.30); 
+  }
+
+  .recent-link { 
+    @apply app-focus flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:bg-slate-100/60 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  }
+
+  .menu-item { 
+    @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] dark:text-slate-300; 
+  }
+
+  .menu-hint { 
+    @apply justify-self-end whitespace-nowrap text-[10px] font-medium text-slate-400 dark:text-slate-500; 
+  }
+
+  .tool-button { 
+    @apply app-focus flex h-9 items-center gap-2 rounded-xl border border-[var(--edge)] bg-[var(--surface)] px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] hover:shadow dark:text-slate-300 dark:hover:bg-[var(--brand-soft-hover)] dark:hover:text-[var(--brand)]; 
+  }
+
+  .tab-active { 
+    @apply relative text-xs font-bold text-[var(--brand)] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[var(--brand)]; 
+  }
+
+  /* Tactile Craft Card Utilities */
+  .tactile-card {
+    @apply rounded-2xl border border-[var(--edge)] bg-[var(--surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600;
+  }
+
+  .glass-panel {
+    @apply rounded-2xl border border-[var(--edge)] bg-white/90 backdrop-blur-md dark:bg-[var(--surface)]/90;
+  }
+
+  .pill-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-[var(--edge)] bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-300;
+  }
 }
 
 @layer utilities {
-  /* Dark-mode overrides for the app's literal Tailwind palette classes
-     (bg-white, text-slate-400, etc.) used throughout client/pages/Index.tsx.
-     Overriding by class keeps every existing className untouched instead of
-     threading dark: variants through hundreds of template-literal strings. */
   .dark .bg-white { background-color: var(--surface); }
   .dark .bg-white\/95 { background-color: color-mix(in srgb, var(--surface) 95%, transparent); }
   .dark .hover\:bg-white:hover { background-color: var(--surface); }
@@ -205,7 +248,7 @@
   .dark .text-blue-600 { color: #60a5fa; }
   .dark .hover\:text-blue-800:hover { color: #93c5fd; }
 
-  /* Additional dark mode utility mappings for inputs, borders, and select controls */
+  /* Additional dark mode utility mappings */
   .dark select option { background-color: var(--surface); color: var(--ink); }
   .dark input, .dark select, .dark textarea { color-scheme: dark; }
   .dark .border-slate-200,
@@ -236,7 +279,7 @@
   .dark .hover\:bg-slate-50\/80:hover,
   .dark .hover\:bg-slate-50\/70:hover { background-color: var(--surface-soft); }
 
-  /* CodeMirror and Native Text Input Cursors in dark mode */
+  /* CodeMirror Cursors in dark mode */
   .dark .cm-cursor { border-left-color: #ffffff !important; border-left-width: 2px !important; }
   .dark .cm-dropCursor { border-left-color: #ffffff !important; }
   .dark input, .dark textarea { caret-color: #ffffff !important; }
@@ -248,7 +291,7 @@
     border-color: var(--edge);
   }
   50% {
-    box-shadow: 0 0 10px 1px rgba(15, 118, 110, 0.3);
+    box-shadow: 0 0 12px 2px rgba(15, 118, 110, 0.35);
     border-color: var(--brand-border);
   }
 }

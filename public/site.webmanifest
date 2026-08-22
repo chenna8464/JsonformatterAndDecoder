@@ -1,7 +1,7 @@
 {
-  "name": "JSONote — JSON Editor & Formatter",
-  "short_name": "JSONote",
-  "description": "Free, private, in-browser JSON editor: format, compare, query, convert, graph, annotate and share JSON.",
+  "name": "JSONDesk — Privacy-First JSON Developer Workspace",
+  "short_name": "JSONDesk",
+  "description": "JSONDesk is a privacy-first JSON workspace for developers to format, repair, inspect, compare, visualize, annotate, and transform JSON — entirely in your browser.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
