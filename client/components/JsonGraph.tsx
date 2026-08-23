@@ -13,18 +13,27 @@ import {
   Check,
   Sparkles,
   ChevronDown,
+  Layers,
+  AlertTriangle,
+  LayoutList,
+  LayoutPanelTop,
+  CircleDot,
 } from "lucide-react";
-import { buildGraphModel, NODE_WIDTH, type GraphModel, type GraphNode, type GraphValueType } from "@/lib/graph";
+import { buildGraphModel, NODE_WIDTH, type GraphLayout, type GraphModel, type GraphNode, type GraphValueType } from "@/lib/graph";
 import { toast } from "sonner";
 
 type Props = {
   json: string;
   dark: boolean;
   onUpdateJson?: (newJson: string) => void;
+  /** Switch the workspace to Table view — better for arrays of records. */
+  onOpenTable?: () => void;
 };
 
 const HEADER_H = 32;
 const ROW_H = 24;
+/** Below this zoom the 11px node text stops being readable at all. */
+const LEGIBLE_MIN_ZOOM = 0.35;
 
 type Palette = {
   bg: string;
@@ -137,12 +146,15 @@ function renderSvgString(model: GraphModel, p: Palette): string {
   return parts.join("");
 }
 
-export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
+export default function JsonGraph({ json, dark, onUpdateJson, onOpenTable }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 40, y: 40 });
   const [zoom, setZoom] = useState(1);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  /** Array paths the user chose to expand despite the fold threshold. */
+  const [expandedPaths, setExpandedPaths] = useState<string[]>([]);
+  const [layout, setLayout] = useState<GraphLayout>("horizontal");
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const p = palettes[dark ? "dark" : "light"];
 
@@ -155,19 +167,36 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
 
   const model = useMemo(() => {
     try {
-      return buildGraphModel(JSON.parse(json));
+      return buildGraphModel(JSON.parse(json), { expandedPaths, layout });
     } catch {
       return null;
     }
-  }, [json]);
+  }, [json, expandedPaths, layout]);
 
+  /**
+   * Fit the diagram, but never below LEGIBLE_MIN_ZOOM.
+   *
+   * The old version clamped to 0.15 and called it done, which is how a
+   * 200-item array ended up rendered as an illegible 15% hairline. Below
+   * the legibility floor we now fit to WIDTH and let the user scroll
+   * vertically — twenty readable nodes beats two hundred unreadable ones.
+   */
   const fit = () => {
     const el = containerRef.current;
     if (!el || !model || model.width === 0) return;
-    const scale = Math.min((el.clientWidth - 80) / model.width, (el.clientHeight - 80) / model.height, 1.2);
-    const z = Math.max(0.15, Number(scale.toFixed(2)));
+    const fitBoth = Math.min((el.clientWidth - 80) / model.width, (el.clientHeight - 80) / model.height, 1.2);
+    const legible = fitBoth >= LEGIBLE_MIN_ZOOM;
+    const scale = legible
+      ? fitBoth
+      : Math.min((el.clientWidth - 80) / model.width, 1.2);
+    const z = Math.max(LEGIBLE_MIN_ZOOM, Number(scale.toFixed(2)));
     setZoom(z);
-    setPan({ x: Math.round((el.clientWidth - model.width * z) / 2), y: Math.round((el.clientHeight - model.height * z) / 2) });
+    setPan({
+      x: Math.round((el.clientWidth - model.width * z) / 2),
+      // When we couldn't fit vertically, start at the top rather than
+      // centring on the middle of a very tall canvas.
+      y: legible ? Math.round((el.clientHeight - model.height * z) / 2) : 40,
+    });
   };
 
   useEffect(() => {
@@ -359,12 +388,19 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
           hairline row: tabular-mono readouts on the left, hairline-
           separated controls on the right, no capsules at all. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--rule)] bg-[var(--surface-soft)] px-4 py-2">
+        {/* Truncation no longer whispers here — it has its own banner. */}
         <span className="tnum font-mono text-[11px] text-slate-500 dark:text-slate-400">
           {model.nodes.length} <span className="text-[var(--rule-strong)]">node{model.nodes.length === 1 ? "" : "s"}</span>
-          {model.truncated ? <span className="ml-1.5 text-amber-600 dark:text-amber-500">truncated at 600</span> : ""}
+          {model.collapsedPaths.length > 0 && (
+            <span className="ml-1.5 text-[var(--brand)]">of {model.fullNodeCount.toLocaleString()}</span>
+          )}
         </span>
-        <span className="h-3 w-px bg-[var(--rule)]" />
-        <span className="eyebrow hidden sm:block">Drag to pan · wheel to zoom</span>
+        {/* Demoted to 2xl only: with the layout toggle in this row, the
+            pan/zoom hint was the item pushing everything onto a second
+            line, and it's the least valuable thing here — the behaviour
+            is discoverable by trying it. */}
+        <span className="hidden h-3 w-px bg-[var(--rule)] 2xl:block" />
+        <span className="eyebrow hidden 2xl:block">Drag to pan · wheel to zoom</span>
 
         {/* Selection: the node path in mono, actions as plain verbs. */}
         {selectedNode && (
@@ -394,7 +430,34 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
           </>
         )}
 
+        {/* ── Layout modes ───────────────────────────────────────────
+            Deliberately layouts, not a 2D/3D switch: all three keep text
+            upright and axis-aligned, so reading keys and values — the
+            actual job — never degrades. Each suits a different document
+            shape, and all three still export to SVG/PNG. */}
         <div className="ml-auto flex items-center gap-1">
+          {([
+            { id: "horizontal", label: "Horizontal", icon: LayoutList, hint: "Best for deeply nested documents" },
+            { id: "vertical", label: "Vertical", icon: LayoutPanelTop, hint: "Best for wide, shallow documents" },
+            { id: "radial", label: "Radial", icon: CircleDot, hint: "Best for judging overall shape and balance" },
+          ] as const).map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setLayout(mode.id)}
+              className="app-focus chrome flex h-7 items-center gap-1.5 px-2 transition-colors"
+              style={{
+                borderRadius: "var(--r-edge)",
+                color: layout === mode.id ? "var(--brand)" : "var(--chrome-ink)",
+                background: layout === mode.id ? "var(--brand-soft)" : "transparent",
+              }}
+              title={`${mode.label} layout — ${mode.hint}`}
+              aria-pressed={layout === mode.id}
+            >
+              <mode.icon size={13} strokeWidth={layout === mode.id ? 2.4 : 2} />
+              <span className="hidden lg:inline">{mode.label}</span>
+            </button>
+          ))}
+          <span className="mx-1.5 h-3.5 w-px bg-[var(--rule)]" />
           {/* Zoom: bare glyphs around a tabular readout. The percentage
               is the only thing with ink weight, because it's the data. */}
           <button
@@ -465,6 +528,70 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Folded-array notice ────────────────────────────────────
+          States plainly what was folded and offers the two sensible
+          exits: expand it anyway, or open the view that suits this shape
+          better. Nothing is hidden silently. */}
+      {model && model.collapsedPaths.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--rule)] bg-[var(--brand-soft)] px-4 py-2.5">
+          <Layers size={14} className="shrink-0 text-[var(--brand)]" />
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-[var(--brand)]">
+            <span className="font-semibold">
+              {model.collapsedPaths.length === 1
+                ? "1 large array is summarised"
+                : `${model.collapsedPaths.length} large arrays are summarised`}
+            </span>
+            <span className="ml-1.5 text-slate-500 dark:text-slate-400">
+              Repeated items are shown as a count and field list so the diagram stays readable.
+            </span>
+          </p>
+          <button
+            onClick={() => setExpandedPaths(model.collapsedPaths)}
+            className="app-focus chrome shrink-0 border border-[var(--brand-border)] px-2.5 py-1 text-[var(--brand)] transition-colors hover:bg-[var(--brand-soft-hover)]"
+            style={{ borderRadius: "var(--r-edge)" }}
+          >
+            Expand all
+          </button>
+          {onOpenTable && (
+            <button
+              onClick={onOpenTable}
+              className="app-focus chrome shrink-0 px-2 py-1 text-[var(--chrome-ink)] transition-colors hover:text-[var(--brand)]"
+              style={{ borderRadius: "var(--r-edge)" }}
+              title="Arrays of records read better as a table"
+            >
+              Open in Table
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Truncation warning ─────────────────────────────────────
+          Distinct from folding, and deliberately louder: folding is
+          reversible and lossless, this is data that is NOT on screen.
+          It used to be a small amber word in the toolbar, which read as
+          a footnote rather than "you are not seeing your data". */}
+      {model?.truncated && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-300/60 bg-amber-50 px-4 py-2.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <AlertTriangle size={14} className="shrink-0 text-amber-600 dark:text-amber-500" />
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">Diagram incomplete.</span>
+            <span className="ml-1.5">
+              Showing {model.nodes.length.toLocaleString()} of ~{model.fullNodeCount.toLocaleString()} nodes — the
+              rest are not drawn. Collapse arrays or inspect the document in Tree or Table view to see everything.
+            </span>
+          </p>
+          {expandedPaths.length > 0 && (
+            <button
+              onClick={() => setExpandedPaths([])}
+              className="app-focus chrome shrink-0 border border-amber-400/60 px-2.5 py-1 text-amber-800 transition-colors hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-500/20"
+              style={{ borderRadius: "var(--r-edge)" }}
+            >
+              Re-collapse
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Interactive SVG Canvas with Dot Grid Background */}
       <div
@@ -590,6 +717,42 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
                       </g>
                     );
                   })}
+
+                  {/* Folded array: an in-canvas expand control, so the
+                      affordance sits on the thing it affects rather than
+                      only in the banner at the top of the view. */}
+                  {n.collapsed && (
+                    <g
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedPaths((prev) =>
+                          prev.includes(n.path) ? prev : [...prev, n.path]
+                        );
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <rect
+                        x={n.x + 8}
+                        y={n.y + n.height - 26}
+                        width={n.width - 16}
+                        height={20}
+                        rx={3}
+                        fill={p.selected}
+                        opacity={0.12}
+                      />
+                      <text
+                        x={n.x + n.width / 2}
+                        y={n.y + n.height - 12}
+                        fontSize={10}
+                        fontWeight={600}
+                        textAnchor="middle"
+                        fill={p.selected}
+                        fontFamily="ui-monospace, monospace"
+                      >
+                        {`EXPAND ${n.collapsed.total} ITEMS`}
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
             })}

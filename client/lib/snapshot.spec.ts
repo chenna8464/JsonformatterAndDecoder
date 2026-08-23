@@ -37,6 +37,29 @@ describe("snapshot encode/decode", () => {
     expect(decodeSnapshot("not-valid-gzip")).toBeNull();
   });
 
+  // Share links carry the whole document in the URL hash, so payload size
+  // grows linearly with the data. These pin the actual numbers, because the
+  // limit that bites is not the browser (a hash is never sent to a server)
+  // but the messaging apps people paste links into.
+  it("round-trips a 1000-record document without loss", () => {
+    const items = Array.from({ length: 1000 }, (_, i) => ({
+      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+    }));
+    const big: Snapshot = { v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) };
+    const encoded = encodeSnapshot(big);
+    expect(decodeSnapshot(encoded)).toEqual(big);
+  });
+
+  it("keeps the share payload around an eighth of the raw JSON size", () => {
+    const items = Array.from({ length: 1000 }, (_, i) => ({
+      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+    }));
+    const big: Snapshot = { v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) };
+    const ratio = encodeSnapshot(big).length / big.json.length;
+    // ~0.127 measured. Guard against a regression that stops compressing.
+    expect(ratio).toBeLessThan(0.2);
+  });
+
   it("rejects a decompression bomb instead of expanding it into memory", async () => {
     const { gzipSync } = await import("fflate");
     const bomb = gzipSync(new Uint8Array(80 * 1024 * 1024));
