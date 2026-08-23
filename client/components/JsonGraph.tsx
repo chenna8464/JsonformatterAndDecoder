@@ -351,104 +351,114 @@ export default function JsonGraph({ json, dark, onUpdateJson }: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Graph Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2">
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-          {model.nodes.length} node{model.nodes.length === 1 ? "" : "s"}
-          {model.truncated ? " (truncated — showing first 600)" : ""} · drag to pan, wheel to zoom
+      {/* ── Graph readout bar ──────────────────────────────────────
+          Simplified to match the rest of the chrome. Was: a rounded-full
+          zoom capsule with its own border and shadow, a bordered box
+          around the selection, and a pill Export button — three
+          different container shapes in one 40px strip. Now a single
+          hairline row: tabular-mono readouts on the left, hairline-
+          separated controls on the right, no capsules at all. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--rule)] bg-[var(--surface-soft)] px-4 py-2">
+        <span className="tnum font-mono text-[11px] text-slate-500 dark:text-slate-400">
+          {model.nodes.length} <span className="text-[var(--rule-strong)]">node{model.nodes.length === 1 ? "" : "s"}</span>
+          {model.truncated ? <span className="ml-1.5 text-amber-600 dark:text-amber-500">truncated at 600</span> : ""}
         </span>
+        <span className="h-3 w-px bg-[var(--rule)]" />
+        <span className="eyebrow hidden sm:block">Drag to pan · wheel to zoom</span>
 
-        {/* Selected Node Action Bar */}
+        {/* Selection: the node path in mono, actions as plain verbs. */}
         {selectedNode && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--edge)] bg-white px-2.5 py-1 text-xs dark:bg-[var(--surface)]">
-            <span className="font-bold text-[var(--brand)]">{selectedNode.label}</span>
-            {onUpdateJson && (
-              <button
-                onClick={() => handleOpenAddModal(selectedNode)}
-                className="flex items-center gap-1 text-[var(--brand)] hover:underline"
-              >
-                <PlusCircle size={13} /> Add property
-              </button>
-            )}
-            {selectedNode.path !== "$" && selectedNode.path !== "root" && onUpdateJson && (
-              <button
-                onClick={() => handleDeleteNode(selectedNode)}
-                className="ml-1 text-rose-600 hover:underline dark:text-rose-400"
-                title="Delete this node from JSON"
-              >
-                <Trash2 size={13} />
-              </button>
-            )}
-          </div>
+          <>
+            <span className="h-3 w-px bg-[var(--rule)]" />
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] font-medium text-[var(--brand)]">{selectedNode.label}</span>
+              {onUpdateJson && (
+                <button
+                  onClick={() => handleOpenAddModal(selectedNode)}
+                  className="app-focus chrome flex items-center gap-1.5 text-[var(--chrome-ink)] transition-colors hover:text-[var(--brand)]"
+                >
+                  <PlusCircle size={12} /> Add property
+                </button>
+              )}
+              {selectedNode.path !== "$" && selectedNode.path !== "root" && onUpdateJson && (
+                <button
+                  onClick={() => handleDeleteNode(selectedNode)}
+                  className="app-focus text-slate-400 transition-colors hover:text-rose-600 dark:hover:text-rose-400"
+                  title="Delete this node from JSON"
+                  aria-label="Delete node"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          </>
         )}
 
-        {/* Sleek Controls */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Zoom Segmented Group: [-] [50%] [+] [Fit] */}
-          <div className="flex items-center rounded-full border border-[var(--edge)] bg-white px-1 py-0.5 shadow-2xs dark:border-[#30363d] dark:bg-[#161b22]">
-            <button
-              onClick={() => setZoom((z) => Math.max(0.15, Number((z / 1.15).toFixed(2))))}
-              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
-              title="Zoom out (-15%)"
-              aria-label="Zoom out"
-            >
-              <Minus size={13} />
-            </button>
-            <button
-              onClick={() => setZoom(1)}
-              className="px-2 py-1 font-mono text-xs font-bold text-slate-700 transition hover:text-[var(--brand)] dark:text-slate-200"
-              title="Reset zoom to 100%"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              onClick={() => setZoom((z) => Math.min(2.5, Number((z * 1.15).toFixed(2))))}
-              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
-              title="Zoom in (+15%)"
-              aria-label="Zoom in"
-            >
-              <Plus size={13} />
-            </button>
-            <div className="mx-1 h-3.5 w-px bg-slate-200 dark:bg-slate-800" />
-            <button
-              onClick={fit}
-              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-slate-800"
-              title="Fit graph to screen"
-              aria-label="Fit graph to screen"
-            >
-              <Maximize size={13} />
-            </button>
-          </div>
+        <div className="ml-auto flex items-center gap-1">
+          {/* Zoom: bare glyphs around a tabular readout. The percentage
+              is the only thing with ink weight, because it's the data. */}
+          <button
+            onClick={() => setZoom((z) => Math.max(0.15, Number((z / 1.15).toFixed(2))))}
+            className="app-focus p-1.5 text-slate-400 transition-colors hover:text-[var(--brand)]"
+            style={{ borderRadius: "var(--r-edge)" }}
+            title="Zoom out (-15%)"
+            aria-label="Zoom out"
+          >
+            <Minus size={13} />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="app-focus tnum min-w-[42px] px-1 font-mono text-[11px] font-medium text-slate-600 transition-colors hover:text-[var(--brand)] dark:text-slate-300"
+            title="Reset zoom to 100%"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            onClick={() => setZoom((z) => Math.min(2.5, Number((z * 1.15).toFixed(2))))}
+            className="app-focus p-1.5 text-slate-400 transition-colors hover:text-[var(--brand)]"
+            style={{ borderRadius: "var(--r-edge)" }}
+            title="Zoom in (+15%)"
+            aria-label="Zoom in"
+          >
+            <Plus size={13} />
+          </button>
+          <span className="mx-1.5 h-3.5 w-px bg-[var(--rule)]" />
+          <button
+            onClick={fit}
+            className="app-focus p-1.5 text-slate-400 transition-colors hover:text-[var(--brand)]"
+            style={{ borderRadius: "var(--r-edge)" }}
+            title="Fit graph to screen"
+            aria-label="Fit graph to screen"
+          >
+            <Maximize size={13} />
+          </button>
+          <span className="mx-1.5 h-3.5 w-px bg-[var(--rule)]" />
 
-          {/* Export Dropdown Menu */}
           <div className="relative">
             <button
               onClick={() => setExportMenuOpen((open) => !open)}
-              className="tool-button flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+              className={`header-button ${exportMenuOpen ? "header-button-on" : ""}`}
               title="Export Graph Image"
             >
-              <Download size={13} className="text-[var(--brand)]" />
+              <Download size={13} />
               <span>Export</span>
-              <ChevronDown size={12} className="text-slate-400" />
+              <ChevronDown size={11} className={`transition-transform ${exportMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {exportMenuOpen && (
               <div
                 onClick={() => setExportMenuOpen(false)}
-                className="absolute right-0 top-10 z-50 w-44 rounded-xl border border-[var(--edge)] bg-white p-1 shadow-lg dark:border-[#30363d] dark:bg-[#161b22]"
+                className="menu-surface absolute right-0 top-10 z-50 w-48"
               >
-                <button
-                  onClick={exportSvg}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"
-                >
+                <button onClick={exportSvg} className="menu-item">
                   <Download size={14} className="text-[var(--brand)]" />
-                  <span>SVG Vector (.svg)</span>
+                  <span>SVG vector</span>
+                  <span className="menu-hint">.svg</span>
                 </button>
-                <button
-                  onClick={exportPng}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"
-                >
+                <button onClick={exportPng} className="menu-item">
                   <ImageDown size={14} className="text-[var(--brand)]" />
-                  <span>PNG Image (.png)</span>
+                  <span>PNG image</span>
+                  <span className="menu-hint">.png</span>
                 </button>
               </div>
             )}

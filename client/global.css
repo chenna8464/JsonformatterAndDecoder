@@ -25,7 +25,14 @@
     --border: 227 26% 92%;
     --input: 227 26% 92%;
     --ring: 171 77% 34%;
-    --radius: 0.75rem;
+    --radius: 0.25rem;
+
+    /* ── Radius system ─────────────────────────────────────────────
+       Structural chrome is square; only pressable affordances get a
+       radius, and never more than 3px. Replaces the uniform pill look. */
+    --r-flat: 0px;
+    --r-edge: 2px;
+    --r-press: 3px;
 
     /* JSONDesk app tokens — light */
     --surface-page: #f6f7fb;
@@ -60,6 +67,13 @@
     /* Fixed brand-mark tokens */
     --ink-solid: #172033;
     --neutral-shadow: rgba(100, 116, 139, 0.25);
+
+    /* Craft tokens — seams, rules, drafting grid */
+    --grid-line: rgba(23, 32, 51, 0.032);
+    --rule: #e3e6ef;
+    --rule-strong: #d3d8e6;
+    --chrome-ink: #6b7488;
+    --chrome-ink-strong: #2b3448;
   }
 
   .dark {
@@ -111,16 +125,43 @@
     --cm-selection-match: rgba(224, 169, 74, 0.3);
     --brand-ring: rgba(45, 212, 191, 0.4);
     --brand-shadow: rgba(0, 0, 0, 0.55);
+
+    /* Craft tokens — seams, rules, drafting grid */
+    --grid-line: rgba(240, 246, 252, 0.028);
+    --rule: #2a3038;
+    --rule-strong: #3d444d;
+    --chrome-ink: #8b949e;
+    --chrome-ink-strong: #d7dee7;
   }
 
   * { @apply border-border; }
-  body { 
-    @apply bg-background text-foreground; 
+  body {
+    @apply bg-background text-foreground;
     font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11", "tnum";
   }
   button, input, textarea, select { font: inherit; }
+
+  /* ── Blueprint ground ───────────────────────────────────────────
+     A near-invisible 32px drafting grid on the page surface. You don't
+     see it; you feel the panels sitting ON something rather than
+     floating in gray nothing. */
+  .blueprint-ground {
+    background-color: var(--surface-page);
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+
+  /* Headings: tight, confident, real scale. Not everything is 12px bold. */
+  h1, h2, h3 { letter-spacing: -0.035em; }
+
+  /* Numerals align in columns — line numbers, counts, diffs. */
+  .tnum { font-variant-numeric: tabular-nums; }
 
   /* Dark mode scrollbars */
   .dark ::-webkit-scrollbar {
@@ -140,64 +181,323 @@
 }
 
 @layer components {
-  /* Bespoke Human-Crafted Component Classes */
-  .app-focus { 
-    @apply outline-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] active:scale-[0.98]; 
-  }
-  
-  .header-button { 
-    @apply app-focus flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-xs font-bold text-slate-600 transition hover:border-[var(--edge)] hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-300 dark:hover:border-[var(--edge)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  /* ══════════════════════════════════════════════════════════════════
+     JSONDesk — "Engineered Instrument"
+
+     Principles, in priority order:
+     1. SEAMS, NOT SHADOWS. Depth comes from tone-stepping and 1px
+        rules. Nothing floats. Nothing blurs.
+     2. STRUCTURE IS SQUARE. Chrome is 0–2px. Only the pressable thing
+        gets 3px. The uniform pill radius is what read as generated.
+     3. THE CHROME SPEAKS MONO. This is an instrument for reading code,
+        so its own labels are set in DM Mono, tracked and capitalised
+        small. Manrope is reserved for content and headings.
+     4. ONE LOUD ACTION. Exactly one filled button per region. The rest
+        recede to ghosts. Six identical pills is not a hierarchy.
+     5. WEIGHT DOES THE WORK. 400/500/600/800 across a real size scale,
+        instead of font-bold on everything at 12px.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* The instrument's own typographic voice — micro-caps mono.
+     Sized to sit width-neutral against the 12px bold it replaces. */
+  .chrome {
+    font-family: "DM Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.085em;
+    text-transform: uppercase;
   }
 
-  .sidebar-link { 
-    @apply app-focus flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:border-[var(--edge-soft)] hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  /* Section eyebrows: the smallest, quietest, most tracked-out label. */
+  .eyebrow {
+    font-family: "DM Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--chrome-ink);
   }
 
-  .sidebar-link-active { 
-    @apply border-[var(--brand-soft-border)] bg-[var(--brand-soft)] text-[var(--brand)] shadow-sm; 
+  /* Focus: a crisp 1px inset ring, not a fuzzy offset halo.
+     No active:scale — instruments don't squish.
+
+     Deliberately drawn with `outline`, NOT `box-shadow`. Several
+     components below use box-shadow insets to carry STATE (the active
+     tab underline, the sidebar rail, the primary marker). A
+     box-shadow focus ring replaces those wholesale the moment a
+     control is focused, so a clicked button would drop its own active
+     state and grow a full brand ring instead. outline occupies a
+     separate channel and composes cleanly with all of them. */
+  .app-focus {
+    @apply outline-none transition-[background-color,color,border-color,box-shadow] duration-100;
+  }
+  /* Drawn in neutral ink, NOT brand. Brand teal is the vocabulary of
+     "primary" and "active" throughout this UI, so a brand-coloured
+     focus ring read as a selected state — a focused Format sat next to
+     an engaged Compare and the rack looked like it had two selections,
+     with the focus box shouting louder than the real one. Focus is a
+     keyboard affordance and belongs in a separate colour channel. */
+  .app-focus:focus-visible {
+    outline: 1px solid var(--chrome-ink-strong);
+    outline-offset: -2px;
   }
 
-  .dark .sidebar-link-active { 
-    background-color: rgba(45, 212, 191, 0.14) !important; 
-    color: #2dd4bf !important; 
-    border: 1px solid rgba(45, 212, 191, 0.30); 
+  /* ── Header controls ────────────────────────────────────────────
+     Ghosts. No borders, no fills at rest. They earn presence on
+     hover by stepping one tone and gaining a top hairline. */
+  .header-button {
+    @apply app-focus chrome relative flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3;
+    border-radius: var(--r-edge);
+    color: var(--chrome-ink);
+    background: transparent;
+  }
+  .header-button::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 1px;
+    background: var(--brand);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .header-button:hover {
+    background: var(--surface-soft);
+    color: var(--chrome-ink-strong);
+  }
+  .header-button:hover::before { transform: scaleX(1); }
+  .header-button-on {
+    background: var(--surface-soft);
+    color: var(--chrome-ink-strong);
+  }
+  .header-button-on::before { transform: scaleX(1); }
+
+  /* ── The tool rack ─────────────────────────────────────────────
+     The single biggest change. Six bordered pills become one machined
+     control strip: a shared hairline enclosure, hairline seams between
+     cells, square ends. Reads as one instrument, not six buttons.
+
+     NOTE: no `overflow: hidden` here. It was clipping the More
+     dropdown, which is absolutely positioned inside the last cell —
+     the menu rendered in the DOM but was invisible. At a 2px radius
+     there is nothing worth clipping anyway. */
+  .tool-rack {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: var(--surface);
+  }
+  .tool-rack > * + * { border-left: 1px solid var(--rule); }
+
+  .tool-button {
+    @apply app-focus chrome flex h-9 items-center gap-2 whitespace-nowrap px-3.5;
+    color: var(--chrome-ink);
+    background: transparent;
+    border-radius: 0;
+  }
+  .tool-button:hover {
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .tool-button-on {
+    background: var(--brand-soft);
+    color: var(--brand);
+    box-shadow: inset 0 -2px 0 var(--brand);
   }
 
-  .recent-link { 
-    @apply app-focus flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:bg-slate-100/60 dark:text-slate-400 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white; 
+  /* The lead action — brand ink, nothing else.
+
+     Two earlier attempts were both wrong: a solid ink-brand fill was
+     far too heavy (one dark block against five light ghosts), and a
+     2px top bar was no better — it made Format look like a raised tab
+     escaping the strip, and it meant the rack carried accents on two
+     different edges at once. The rack now has exactly ONE accent
+     direction: a bottom bar means "engaged" (.tool-button-on).
+     Primary is expressed purely in colour, which is enough — it's the
+     only coloured label in the strip until you engage something. */
+  .tool-button-primary {
+    color: var(--brand);
+    background: transparent;
+  }
+  .tool-button-primary:hover {
+    background: var(--brand-soft);
+    color: var(--brand);
   }
 
-  .menu-item { 
-    @apply app-focus grid w-full grid-cols-[18px_auto_1fr] items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] dark:text-slate-300; 
+  /* ── Sidebar navigation ────────────────────────────────────────
+     Active state is a 2px brand rail on the left edge, not a filled
+     rounded tablet. Same footprint, completely different read. */
+  .sidebar-link {
+    @apply app-focus chrome relative flex w-full items-center gap-3 px-3 py-2.5;
+    border-radius: var(--r-edge);
+    color: var(--chrome-ink);
+    box-shadow: inset 2px 0 0 transparent;
+  }
+  .sidebar-link:hover {
+    background: var(--surface-soft);
+    color: var(--chrome-ink-strong);
+    box-shadow: inset 2px 0 0 var(--rule-strong);
+  }
+  .sidebar-link-active {
+    color: var(--brand) !important;
+    background: var(--brand-soft);
+    box-shadow: inset 2px 0 0 var(--brand) !important;
   }
 
-  .menu-hint { 
-    @apply justify-self-end whitespace-nowrap text-[10px] font-medium text-slate-400 dark:text-slate-500; 
+  /* Recent files: a document ledger. Mono names, hairline hover rail. */
+  .recent-link {
+    @apply app-focus flex w-full items-center gap-2.5 px-3 py-2 text-left;
+    font-family: "DM Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    border-radius: var(--r-edge);
+    color: var(--chrome-ink);
+    box-shadow: inset 2px 0 0 transparent;
+  }
+  .recent-link:hover {
+    background: var(--surface-soft);
+    color: var(--chrome-ink-strong);
+    box-shadow: inset 2px 0 0 var(--rule-strong);
+  }
+  .recent-link-active {
+    color: var(--brand) !important;
+    box-shadow: inset 2px 0 0 var(--brand) !important;
   }
 
-  .tool-button { 
-    @apply app-focus flex h-9 items-center gap-2 rounded-xl border border-[var(--edge)] bg-[var(--surface)] px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft-hover)] hover:text-[var(--brand)] hover:shadow dark:text-slate-300 dark:hover:bg-[var(--brand-soft-hover)] dark:hover:text-[var(--brand)]; 
+  /* ── Menus ─────────────────────────────────────────────────────
+     Square, hairline, tight. Hover fills edge-to-edge like a native
+     menu rather than an inset floating pill. */
+  .menu-surface {
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: var(--surface);
+    box-shadow: 0 1px 0 var(--rule), 0 16px 32px -18px rgba(23, 32, 51, 0.28);
+    padding: 0;
+    overflow: hidden;
+  }
+  /* Grid is [icon | label:1fr | hint:auto] so the hint always gets the
+     width it needs and the label truncates instead. The reverse
+     ([18px auto 1fr]) let long labels push the hints out past the
+     menu's edge, where overflow clipped them mid-word. */
+  .menu-item {
+    @apply app-focus grid w-full grid-cols-[18px_1fr_auto] items-center gap-2.5 whitespace-nowrap px-3 py-2.5 text-left;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: 0;
+    color: var(--chrome-ink-strong);
+  }
+  .menu-item:hover {
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .menu-hint {
+    @apply justify-self-end whitespace-nowrap;
+    font-family: "DM Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    color: var(--chrome-ink);
   }
 
-  .tab-active { 
-    @apply relative text-xs font-bold text-[var(--brand)] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[var(--brand)]; 
+  /* ── Panels ────────────────────────────────────────────────────
+     Flush. A single hairline, a square corner, and one crisp 1px
+     bottom edge for weight. No 30px blur halo. */
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: var(--surface);
+    box-shadow: 0 1px 0 var(--rule);
   }
 
-  /* Tactile Craft Card Utilities */
   .tactile-card {
-    @apply rounded-2xl border border-[var(--edge)] bg-[var(--surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: var(--surface);
+    box-shadow: 0 1px 0 var(--rule);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .tactile-card:hover {
+    border-color: var(--brand-border);
+    box-shadow: 0 1px 0 var(--rule), inset 2px 0 0 var(--brand);
   }
 
   .glass-panel {
-    @apply rounded-2xl border border-[var(--edge)] bg-white/90 backdrop-blur-md dark:bg-[var(--surface)]/90;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(10px);
   }
 
+  /* ── Tabs ──────────────────────────────────────────────────────
+     A hard 2px underline flush to the rail. Square, not a rounded bar. */
+  .tab-active {
+    @apply relative text-[var(--brand)];
+    font-weight: 700;
+  }
+  .tab-active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -0.75rem;
+    height: 2px;
+    width: 100%;
+    background: var(--brand);
+  }
+
+  /* ── Tags ──────────────────────────────────────────────────────
+     Square hairline chips with mono type. Was: rounded-full bold pills. */
   .pill-badge {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-[var(--edge)] bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-300;
+    @apply inline-flex items-center gap-1.5 px-2 py-1;
+    font-family: "DM Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-edge);
+    background: var(--surface-soft);
+    color: var(--chrome-ink-strong);
+  }
+
+  /* A measured hairline rule with an optional label riding on it. */
+  .rule {
+    height: 1px;
+    background: var(--rule);
+    border: 0;
   }
 }
 
 @layer utilities {
+  /* ══════════════════════════════════════════════════════════════
+     SYSTEMIC RADIUS + SHADOW CORRECTION
+
+     The page carries hundreds of inline `rounded-xl` / `rounded-2xl`
+     and soft drop-shadows — the two utilities most responsible for the
+     generated look. Rather than hand-editing every call site, the
+     scale itself is redefined once, here, so the whole surface obeys
+     the radius system. `rounded-full` is deliberately left alone:
+     roundness is meaningful on status dots and avatars.
+     ══════════════════════════════════════════════════════════════ */
+  .rounded-sm  { border-radius: var(--r-edge); }
+  .rounded     { border-radius: var(--r-edge); }
+  .rounded-md  { border-radius: var(--r-edge); }
+  .rounded-lg  { border-radius: var(--r-edge); }
+  .rounded-xl  { border-radius: var(--r-press); }
+  .rounded-2xl { border-radius: var(--r-press); }
+  .rounded-3xl { border-radius: var(--r-press); }
+
+  /* Depth is a 1px seam, never a blur. */
+  .shadow-2xs, .shadow-xs, .shadow-sm, .shadow, .shadow-md {
+    box-shadow: 0 1px 0 var(--rule) !important;
+  }
+  .shadow-lg, .shadow-xl, .shadow-2xl {
+    box-shadow: 0 1px 0 var(--rule), 0 18px 36px -20px rgba(23, 32, 51, 0.3) !important;
+  }
+
   .dark .bg-white { background-color: var(--surface); }
   .dark .bg-white\/95 { background-color: color-mix(in srgb, var(--surface) 95%, transparent); }
   .dark .hover\:bg-white:hover { background-color: var(--surface); }
@@ -285,17 +585,10 @@
   .dark input, .dark textarea { caret-color: #ffffff !important; }
 }
 
-@keyframes subtle-shimmer {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0);
-    border-color: var(--edge);
-  }
-  50% {
-    box-shadow: 0 0 12px 2px rgba(15, 118, 110, 0.35);
-    border-color: var(--brand-border);
-  }
-}
-
+/* The old `shimmer-highlight` pulsed a teal glow around Share Snapshot
+   forever. Perpetual motion to beg for a click is the loudest tell of a
+   generated UI. It's now a no-op: the button earns attention by being
+   the only filled control in the rack. */
 .shimmer-highlight {
-  animation: subtle-shimmer 3s infinite ease-in-out;
+  animation: none;
 }

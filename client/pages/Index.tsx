@@ -58,11 +58,9 @@ import {
   Clock,
   ExternalLink,
   Globe,
-  Heart,
   Camera,
   PictureInPicture,
   Layers,
-  Bug,
 } from "lucide-react";
 
 const initialJson = `{
@@ -92,17 +90,7 @@ const initialJson = `{
   }
 }`;
 
-const webhookJson = `{
-  "event": "user.updated",
-  "timestamp": "2024-05-18T10:30:00Z",
-  "data": {
-    "id": "usr_1024",
-    "email": "hello@example.com",
-    "active": true
-  }
-}`;
-
-type Reply = { id: number; text: string; mention: string; at: number };
+type Reply ={ id: number; text: string; mention: string; at: number };
 type Note = { id: number; title: string; text: string; path: string; line: number; mention: string; color: string; resolved?: boolean; replies?: Reply[] };
 type DocumentRecord = { name: string; content: string; updated: string };
 type Workspace = { id: number; name: string; type: "Personal" | "Team"; color: string };
@@ -443,7 +431,7 @@ function TableView({ json, onChange }: TableViewProps) {
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-slate-400"><TableIcon size={15} className="text-[var(--brand)]" /> {candidate.rows.length} row{candidate.rows.length === 1 ? "" : "s"} <span className="hidden sm:inline">• click a column header to sort, click a cell to edit • scroll right for more columns</span></div>
         {candidates.length > 1 && (
           <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Array:</span>
+            <span className="eyebrow">Array:</span>
             {candidates.map((c) => (
               <button key={c.key} onClick={() => setSelectedKey(c.key)} title={`View "${c.key}" as a table`} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition ${candidate.key === c.key ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)] dark:bg-[var(--surface)] dark:text-slate-300 dark:shadow-none"}`}><TableIcon size={12} />{c.key}</button>
             ))}
@@ -495,31 +483,26 @@ const starterWorkspaces: Workspace[] = [
   { id: 2, name: "API Guild", type: "Team", color: "bg-[var(--violet)]" },
 ];
 
+/**
+ * First-run seed.
+ *
+ * One sample document, so a new visitor lands on something they can
+ * immediately format, fold, graph and query rather than an empty box.
+ *
+ * Deliberately NO seeded notes. There used to be two, attributed to
+ * "Chenna (Lead Dev)" and "Sarah (API Architect)" — to a stranger those
+ * read as real colleagues commenting on their file, which is confusing at
+ * best and looks like leaked data at worst. The notes panel now starts
+ * genuinely empty and invites the first annotation instead.
+ *
+ * `webhook-payload.json` was also dropped: two seeded files implied saved
+ * work the visitor never did.
+ */
 const starterDocuments: DocumentRecord[] = [
   { name: "northstar-api.json", content: initialJson, updated: "Just now" },
-  { name: "webhook-payload.json", content: webhookJson, updated: "Yesterday" },
 ];
 
-const starterNotes: Note[] = [
-  {
-    id: 1,
-    title: "Confirm production limits",
-    text: "Check whether rateLimit needs to be raised before partner launch.",
-    path: "settings.rateLimit",
-    line: 20,
-    mention: "Chenna (Lead Dev)",
-    color: "bg-amber-400",
-  },
-  {
-    id: 2,
-    title: "API versioning review",
-    text: "Consider adding a v2 route before introducing bulk user updates.",
-    path: "endpoints[1]",
-    line: 14,
-    mention: "Sarah (API Architect)",
-    color: "bg-violet-400",
-  },
-];
+const starterNotes: Note[] = [];
 
 interface FaqItem {
   id: string;
@@ -535,8 +518,8 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "what-is-jsonote",
     category: "general",
     categoryLabel: "Getting Started",
-    question: "What is JSONote and why is it different from basic JSON formatters?",
-    answer: "JSONote is an intelligent, context-aware JSON editor that pairs raw JSON editing with structural annotation notes. Unlike basic web formatters, JSONote tracks full revision history, attaches persistent notes directly to JSON line numbers/AST paths, offers interactive 2D/3D graph visualization, and repairs malformed JSON automatically without data loss.",
+    question: "What is JSONDesk and why is it different from basic JSON formatters?",
+    answer: "JSONDesk is an intelligent, context-aware JSON editor that pairs raw JSON editing with structural annotation notes. Unlike basic web formatters, JSONDesk tracks full revision history, attaches persistent notes directly to JSON line numbers/AST paths, offers interactive 2D/3D graph visualization, and repairs malformed JSON automatically without data loss.",
     tags: ["getting started", "features", "notes", "editor", "overview"]
   },
   {
@@ -700,11 +683,6 @@ export default function Index() {
   const [tourOpen, setTourOpen] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
-  const [simulateError, setSimulateError] = useState(false);
-
-  if (simulateError) {
-    throw new Error("Test Exception: High traffic volume simulated for JSONDesk Error Boundary & Alert System.");
-  }
   const pipWindowRef = useRef<Window | null>(null);
   const [helpTab, setHelpTab] = useState<"query" | "contact" | "faq">("query");
   const [supportName, setSupportName] = useState("");
@@ -1020,6 +998,8 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
   const cmRef = useRef<JsonCodeEditorHandle>(null);
   const [documentName, setDocumentName] = useState("northstar-api.json");
   const [activeDocumentKey, setActiveDocumentKey] = useState<string | null>("northstar-api.json");
+  /** Name of the document whose delete button is armed, or null. */
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"current" | "documents">("current");
   const [workspaceDocuments, setWorkspaceDocuments] = useState<Record<number, DocumentRecord[]>>({ 1: starterDocuments, 2: [] });
   const [workspaces, setWorkspaces] = useState<Workspace[]>(starterWorkspaces);
@@ -1169,7 +1149,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
       setDocumentName(firstDoc.name);
       setJson(firstDoc.content);
       const targetKey = `${id}:${firstDoc.name}`;
-      setNotes(documentNotes[targetKey] || (firstDoc.name === "northstar-api.json" ? starterNotes : []));
+      setNotes(documentNotes[targetKey] || []);
     } else {
       setActiveDocumentKey(null);
       setDocumentName("untitled.json");
@@ -1200,17 +1180,54 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     setNotes([]);
   };
 
+  /**
+   * Delete a document and, if it was the one on screen, actually leave it.
+   *
+   * This previously only filtered the document out of the list and nulled
+   * `activeDocumentKey` — it never touched the editor. So deleting the open
+   * document left its name in the breadcrumb and its content in the buffer,
+   * and pressing Save would resurrect it. It also orphaned the document's
+   * notes in `documentNotes`, so creating a new file with the same name
+   * inherited the dead file's annotations.
+   */
   const deleteDocumentRecord = (docName: string) => {
-    setWorkspaceDocuments((prev) => {
-      const list = prev[workspaceId] || [];
-      return {
-        ...prev,
-        [workspaceId]: list.filter((item) => item.name !== docName),
-      };
+    const remaining = (workspaceDocuments[workspaceId] || []).filter(
+      (item) => item.name !== docName
+    );
+
+    setWorkspaceDocuments((prev) => ({ ...prev, [workspaceId]: remaining }));
+
+    // Drop the deleted document's notes so the name can be reused clean.
+    setDocumentNotes((all) => {
+      const next = { ...all };
+      delete next[`${workspaceId}:${docName}`];
+      return next;
     });
-    if (activeDocumentKey === docName) {
+
+    // Only disturb the editor if we just deleted what it was showing.
+    if (documentName === docName) {
+      if (remaining.length > 0) {
+        // Fall through to the next surviving document.
+        const next = remaining[0];
+        setActiveDocumentKey(next.name);
+        setDocumentName(next.name);
+        setJson(next.content);
+        setNotes(documentNotes[`${workspaceId}:${next.name}`] || []);
+      } else {
+        // Nothing left — hand back a clean untitled buffer.
+        setActiveDocumentKey(null);
+        setDocumentName("untitled.json");
+        setJson("{\n  \n}");
+        setNotes([]);
+      }
+      setStatus("valid");
+      setFormatMessage("");
+      setView("editor");
+      setCompareOpen(false);
+    } else if (activeDocumentKey === docName) {
       setActiveDocumentKey(null);
     }
+
     toast.success(`Deleted ${docName}`);
   };
 
@@ -1228,7 +1245,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     setCompareOpen(false);
 
     const targetKey = `${workspaceId}:${name}`;
-    setNotes(documentNotes[targetKey] || (name === "northstar-api.json" ? starterNotes : []));
+    setNotes(documentNotes[targetKey] || []);
   };
 
   const updateJson = (value: string) => {
@@ -1858,30 +1875,38 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
   const openNoteCount = notes.filter((note) => !note.resolved).length;
 
   return (
-    <main className="min-h-screen bg-[var(--surface-page)] text-[var(--ink)]">
-      <header className="flex h-[76px] items-center justify-between border-b border-[var(--edge)] bg-white px-5 lg:px-8">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-white shadow-[0_4px_12px_var(--brand-shadow)]">
-            <Braces size={20} strokeWidth={2.6} />
+    <main className="blueprint-ground min-h-screen text-[var(--ink)]">
+      <header className="flex h-[76px] items-center justify-between border-b border-[var(--rule)] bg-[var(--surface)] px-5 lg:px-8">
+        {/* Brand: a square die-stamp, not a rounded app icon. The
+            wordmark sets JSON in mono and Desk in Manrope — the tool and
+            the surface, stated in the two typefaces the UI runs on. */}
+        <div className="flex items-center gap-3.5">
+          {/* The violet underbar that used to sit here read as a
+              rendering artifact — a stray 2px band hanging off the
+              bottom edge — rather than a deliberate detail. The mark is
+              stronger as one clean die-stamp. */}
+          <div className="grid h-9 w-9 shrink-0 place-items-center bg-[var(--brand)] text-white" style={{ borderRadius: "var(--r-edge)" }}>
+            <Braces size={19} strokeWidth={2.75} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[17px] font-bold tracking-[-0.03em]">JSONDesk</h1>
-            </div>
-            <p className="text-xs font-medium text-slate-400">The JSON editor that remembers.</p>
+          <div className="flex flex-col justify-center">
+            <h1 className="flex items-baseline text-[17px] leading-none">
+              <span className="font-mono font-medium tracking-[-0.02em]">JSON</span>
+              <span className="font-extrabold tracking-[-0.045em]">Desk</span>
+            </h1>
+            <p className="eyebrow mt-1.5">The JSON editor that remembers</p>
           </div>
         </div>
         <div className="hidden items-center gap-2 md:flex">
           <div className="relative">
-            <button onClick={(event) => { event.stopPropagation(); setThemeMenuOpen((current) => !current); }} className={`header-button ${themeMenuOpen ? "bg-slate-100 text-slate-800" : ""}`} aria-label="Choose color theme" title="Choose color theme">{isDark ? <Moon size={17} /> : <Sun size={17} />}</button>
-            {themeMenuOpen && <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-44 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
-              <p className="px-2.5 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Color theme</p>
+            <button onClick={(event) => { event.stopPropagation(); setThemeMenuOpen((current) => !current); }} className={`header-button ${themeMenuOpen ? "header-button-on" : ""}`} aria-label="Choose color theme" title="Choose color theme">{isDark ? <Moon size={16} /> : <Sun size={16} />}</button>
+            {themeMenuOpen && <div onClick={(event) => event.stopPropagation()} className="menu-surface absolute right-0 top-11 z-40 w-44">
+              <p className="eyebrow border-b border-[var(--rule)] px-3 py-2.5">Color theme</p>
               {[
                 { value: "light", label: "Light", icon: Sun },
                 { value: "dark", label: "Dark", icon: Moon },
                 { value: "system", label: "System", icon: Laptop },
               ].map((option) => (
-                <button key={option.value} onClick={() => { setTheme(option.value); setThemeMenuOpen(false); }} className="menu-item grid-cols-[18px_auto_1fr]">
+                <button key={option.value} onClick={() => { setTheme(option.value); setThemeMenuOpen(false); }} className="menu-item">
                   <option.icon size={15} className="text-[var(--brand)]" />
                   {option.label}
                   {theme === option.value && <Check size={14} className="justify-self-end text-[var(--brand)]" />}
@@ -1889,9 +1914,13 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               ))}
             </div>}
           </div>
-          <button onClick={() => setFaqOpen(true)} className="header-button bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-950/70 font-bold" title="Frequently Asked Questions Knowledge Base"><CircleHelp size={15} className="text-teal-500" /> FAQ</button>
-          <button onClick={() => setTourOpen(true)} className="header-button bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70" title="Interactive Product Walkthrough"><Sparkles size={15} className="text-amber-500 animate-pulse" /> Take a Tour</button>
-          <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "bg-slate-100 text-slate-800" : ""}`}><CircleHelp size={17} /> Help & Contact</button>
+          {/* Three peers, three ghosts. The teal/amber pill backgrounds
+              and the perpetually pulsing sparkle are gone — nav chrome
+              shouldn't compete with the document for attention. */}
+          <span className="mx-1.5 h-5 w-px bg-[var(--rule)]" />
+          <button onClick={() => setTourOpen(true)} className="header-button" title="Interactive Product Walkthrough"><Sparkles size={14} /> Tour</button>
+          <button onClick={() => setFaqOpen(true)} className="header-button" title="Frequently Asked Questions Knowledge Base">FAQ</button>
+          <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "header-button-on" : ""}`} title="Help & Contact"><CircleHelp size={14} /> Help</button>
         </div>
       </header>
 
@@ -1908,17 +1937,30 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
           ) : (
             <aside style={{ width: leftWidth }} className="flex shrink-0 flex-col border-r border-[var(--edge)] bg-white px-4 py-6 dark:bg-[var(--surface)] dark:border-[#30363d]">
               <div className="mb-2 flex items-center justify-end"><button onClick={() => setLeftCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)] dark:hover:bg-[var(--surface-soft)] dark:hover:text-white" aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={16} /></button></div>
-              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="flex w-full items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-3 text-left transition hover:border-[var(--brand-border)]"><span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${workspace.color}`}><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-700 dark:text-slate-200">{workspace.name}</span><span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{workspace.type} workspace</span></span><ChevronDown size={15} className={`text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[var(--edge)] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)] dark:bg-[var(--surface)] dark:border-[#30363d]"><p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-[var(--surface-soft)]"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[var(--edge-soft)]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[var(--edge)] bg-white px-2.5 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white dark:border-[#30363d]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[var(--violet-soft)] text-[var(--violet-ink)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[var(--ink-solid)] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
-              <button onClick={() => createDocument()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_20px_var(--brand-shadow)] transition hover:bg-[var(--brand-hover)] dark:bg-teal-600 dark:hover:bg-teal-500 dark:text-white dark:shadow-teal-950/60">
-                <FilePlus2 size={17} /> New document
+              <div className="relative mb-5"><button onClick={() => setWorkspaceMenuOpen((current) => !current)} className="app-focus flex w-full items-center gap-3 border border-[var(--rule)] bg-[var(--surface-soft)] p-2.5 text-left transition-colors hover:border-[var(--brand-border)]" style={{ borderRadius: "var(--r-edge)" }}><span className={`grid h-8 w-8 shrink-0 place-items-center text-white ${workspace.color}`} style={{ borderRadius: "var(--r-edge)" }}><Building2 size={15} /></span><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-bold tracking-[-0.02em] text-slate-800 dark:text-slate-100">{workspace.name}</span><span className="eyebrow mt-1 block">{workspace.type}</span></span><ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} /></button>{workspaceMenuOpen && <div className="absolute left-0 right-0 top-[68px] z-30 rounded-xl border border-[var(--edge)] bg-white p-2 shadow-[0_12px_30px_rgba(23,32,51,0.12)] dark:bg-[var(--surface)] dark:border-[#30363d]"><p className="px-2 pb-2 eyebrow">Switch workspace</p>{workspaces.map((item) => <button key={item.id} onClick={() => switchWorkspace(item.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold ${item.id === workspaceId ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-[var(--surface-soft)]"}`}><span className={`h-2 w-2 rounded-full ${item.color}`} />{item.name}<span className="ml-auto text-[9px] uppercase text-slate-400">{item.type}</span></button>)}<div className="my-1 border-t border-[var(--edge-soft)]" /><input value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createWorkspace()} placeholder="New workspace name" className="w-full rounded-lg border border-[var(--edge)] bg-white px-2.5 py-2 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface-soft)] dark:text-white dark:border-[#30363d]" /><div className="mt-2 grid grid-cols-2 gap-1"><button onClick={() => setWorkspaceDraftType("Personal")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Personal" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Personal</button><button onClick={() => setWorkspaceDraftType("Team")} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${workspaceDraftType === "Team" ? "bg-[var(--violet-soft)] text-[var(--violet-ink)]" : "bg-slate-50 text-slate-400 dark:bg-[var(--surface-soft)]"}`}>Team</button></div><button onClick={createWorkspace} className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-[var(--ink-solid)] py-2 text-xs font-bold text-white"><Plus size={13} /> Create workspace</button></div>}</div>
+              {/* Left-aligned label, square edge, no lifted glow. The
+                  keyboard hint sits on the right — the control tells you
+                  how to skip the control. */}
+              <button onClick={() => createDocument()} className="app-focus group flex w-full items-center gap-2.5 bg-[var(--brand)] px-3.5 py-3 text-white transition-colors hover:bg-[var(--brand-hover)] dark:text-[#06201d]" style={{ borderRadius: "var(--r-edge)" }}>
+                <FilePlus2 size={16} strokeWidth={2.4} />
+                <span className="chrome">New document</span>
+                <span className="ml-auto font-mono text-[10px] opacity-55">⌘N</span>
               </button>
-              <nav className="mt-7 space-y-1">
-                <button onClick={() => setActiveSection("current")} className={`sidebar-link ${activeSection === "current" ? "sidebar-link-active" : ""}`}><FileJson2 size={17} /> Current document</button>
-                <button onClick={() => setActiveSection("documents")} className={`sidebar-link ${activeSection === "documents" ? "sidebar-link-active" : ""}`}><FolderOpen size={17} /> My documents</button>
+              <nav className="mt-7 space-y-0.5">
+                <button onClick={() => setActiveSection("current")} className={`sidebar-link ${activeSection === "current" ? "sidebar-link-active" : ""}`}><FileJson2 size={15} /> Current</button>
+                <button onClick={() => setActiveSection("documents")} className={`sidebar-link ${activeSection === "documents" ? "sidebar-link-active" : ""}`}><FolderOpen size={15} /> Documents</button>
               </nav>
-              <div className="mt-9 border-t border-[var(--edge-soft)] pt-5">
-                <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Recent</p>
-                {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "bg-[var(--brand-soft-hover)] text-[var(--brand)]" : ""}`}><span className={`h-2 w-2 rounded-full ${document.name.includes("webhook") ? "bg-[var(--amber-dot)]" : "bg-[var(--brand)]"}`} /> {document.name}</button>)}
+              {/* Section header rides ON the rule, the way a drawing
+                  title block sits on its border. */}
+              <div className="mt-9">
+                <div className="flex items-center gap-2.5">
+                  <p className="eyebrow shrink-0">Recent</p>
+                  <span className="h-px flex-1 bg-[var(--rule)]" />
+                  <span className="tnum shrink-0 font-mono text-[10px] text-slate-400">{documents.length}</span>
+                </div>
+                <div className="mt-2.5 space-y-0.5">
+                  {documents.map((document) => <button key={document.name} onClick={() => openDocument(document.name, document.content)} className={`recent-link ${documentName === document.name ? "recent-link-active" : ""}`}><span className={`h-1.5 w-1.5 shrink-0 ${document.name.includes("webhook") ? "bg-[var(--amber-dot)]" : "bg-[var(--brand)]"}`} /> <span className="truncate">{document.name}</span></button>)}
+                </div>
               </div>
             </aside>
           )}
@@ -1928,77 +1970,85 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-col gap-4 border-b border-[var(--edge)] bg-white px-5 py-3.5 xl:flex-row xl:items-center xl:justify-between xl:px-7">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-                <span className="flex items-center gap-1 font-medium text-slate-500">
-                  <FileJson2 size={15} className="text-[var(--brand)]" />
-                  {workspace.name}
-                </span>
-                <span className="text-slate-300">/</span>
-                <span className="font-medium text-slate-500">{activeSection === "documents" ? "My documents" : "Workspace"}</span>
-                <span className="text-slate-300">/</span>
-                <div className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/80 px-2 py-0.5 transition-all hover:border-[var(--brand-border)] hover:bg-white focus-within:border-[var(--brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--brand-ring)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-[var(--surface)] dark:focus-within:bg-[var(--surface)]" title="Click to rename document">
+              {/* A filepath, so it's set like one: mono throughout, and
+                  the filename is the only thing at full ink weight. */}
+              <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-400">
+                <span className="text-slate-500 dark:text-slate-400">{workspace.name}</span>
+                <span className="text-[var(--rule-strong)]">/</span>
+                <span className="text-slate-500 dark:text-slate-400">{activeSection === "documents" ? "documents" : "workspace"}</span>
+                <span className="text-[var(--rule-strong)]">/</span>
+                <div className="group flex items-center gap-1.5 border-b border-dashed border-[var(--rule-strong)] px-0.5 transition-colors hover:border-[var(--brand)] focus-within:border-[var(--brand)] focus-within:border-solid" title="Click to rename document">
                   <input
                     aria-label="Document name"
                     value={documentName}
                     onChange={(event) => setDocumentName(event.target.value)}
-                    className="min-w-0 max-w-[200px] truncate bg-transparent font-semibold text-slate-800 outline-none dark:text-white"
+                    className="min-w-0 max-w-[200px] truncate bg-transparent text-[12px] font-medium text-slate-800 outline-none dark:text-white"
                     placeholder="Document name"
                   />
-                  <Pencil size={12} className="shrink-0 text-slate-400 opacity-60 group-hover:opacity-100 dark:text-slate-400" />
+                  <Pencil size={11} className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-500" />
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2.5">
+              {/* Status reads like an instrument readout: a 2px signal
+                  bar, a mono state label, then plain-spoken guidance.
+                  The animate-ping halo is gone — a valid document is the
+                  normal case and shouldn't throb for attention. */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-3">
                 {status === "valid" ? (
-                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-xs dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                    </span>
-                    Valid JSON
+                  <div className="flex items-center gap-2">
+                    <span className="h-3.5 w-[3px] bg-emerald-500 dark:bg-emerald-400" />
+                    <span className="chrome text-emerald-700 dark:text-emerald-400">Valid</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-rose-50/80 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-xs dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400">
-                    <AlertCircle size={13} className="shrink-0 text-rose-600 dark:text-rose-400" />
-                    Invalid JSON
+                  <div className="flex items-center gap-2">
+                    <span className="h-3.5 w-[3px] bg-rose-500" />
+                    <span className="chrome flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+                      <AlertCircle size={12} className="shrink-0" /> Invalid
+                    </span>
                   </div>
                 )}
 
+                <span className="h-3 w-px bg-[var(--rule)]" />
+
                 {formatMessage ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--brand)]">
-                    <Sparkles size={13} /> {formatMessage}
-                  </span>
+                  <span className="text-xs font-semibold text-[var(--brand)]">{formatMessage}</span>
                 ) : status === "invalid" ? (
-                  <span className="text-xs font-medium text-rose-500">Click Format to auto-repair malformed structure</span>
+                  <span className="text-xs font-medium text-rose-500">Press Format to auto-repair the structure</span>
                 ) : (
-                  <span className="text-xs text-slate-400">Click Format to repair & pretty-print</span>
+                  <span className="text-xs font-normal text-slate-400">Press Format to repair &amp; pretty-print</span>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            {/* ── The tool rack ──────────────────────────────────────
+                Was six identically-bordered pills in a row, every one
+                shouting at the same volume. Now one machined strip:
+                shared enclosure, hairline seams, square ends — with
+                Format as the single filled action, because formatting
+                is what you actually came here to do. */}
+            <div className="tool-rack">
+              <button onClick={formatJson} title="Format & Auto-Repair JSON (pretty-print)" className="tool-button tool-button-primary">
+                <WandSparkles size={15} /> Format
+              </button>
               <button onClick={saveDocument} title="Save Document to Workspace" className="tool-button">
-                <Check size={16} /> Save
+                <Check size={15} /> Save
               </button>
-              <button onClick={formatJson} title="Format & Auto-Repair JSON (pretty-print)" className="tool-button">
-                <WandSparkles size={16} /> Format
-              </button>
-              <button onClick={() => setCompareOpen((current) => !current)} title="Compare with another document" className={`tool-button ${compareOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`}>
-                <GitCompare size={16} /> Compare
+              <button onClick={() => setCompareOpen((current) => !current)} title="Compare with another document" className={`tool-button ${compareOpen ? "tool-button-on" : ""}`}>
+                <GitCompare size={15} /> Compare
               </button>
               <button onClick={openHistory} title="View Revision History" className="tool-button">
-                <HistoryIcon size={16} /> History
+                <HistoryIcon size={15} /> History
               </button>
-              <button onClick={() => shareLink(compareOpen)} title="Copy compressed URL snapshot link (contains JSON + Notes + Diffs)" className="tool-button border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)] font-bold shadow-2xs hover:bg-[var(--brand)] hover:text-white transition-all active:scale-95 shimmer-highlight">
-                <Camera size={16} /> Share Snapshot
+              <button onClick={() => shareLink(compareOpen)} title="Copy compressed URL snapshot link (contains JSON + Notes + Diffs)" className="tool-button">
+                <Camera size={15} /> Snapshot
               </button>
               <input ref={fileInputRef} type="file" accept=".json,.jsonote,.csv,.txt,application/json,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) importFile(file); event.target.value = ""; }} />
-              <div className="relative">
-                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "border-[var(--brand-border)] bg-[var(--brand-soft)] text-[var(--brand)]" : ""}`} aria-label="More tools">
-                  <MoreHorizontal size={16} /> More
+              <div className="relative flex">
+                <button onClick={(event) => { event.stopPropagation(); setMoreOpen((current) => !current); }} className={`tool-button ${moreOpen ? "tool-button-on" : ""}`} aria-label="More tools">
+                  <MoreHorizontal size={15} /> More
                 </button>
                 {moreOpen && (
-                  <div onClick={(event) => event.stopPropagation()} className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)]">
+                  <div onClick={(event) => event.stopPropagation()} className="menu-surface absolute right-0 top-11 z-40 w-[19rem]">
                     <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
                     <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
                     <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json{notes.length > 0 && <span className="menu-hint">with comments</span>}</button>
@@ -2046,10 +2096,41 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 <div className="absolute inset-0 z-20 overflow-auto bg-white p-6 dark:bg-[var(--surface-page)]">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xl font-bold tracking-[-0.03em] text-slate-800 dark:text-white">My documents</p>
-                      <p className="mt-1 text-sm text-slate-400">Saved JSON files in {workspace.name}. Switch workspaces from the left panel.</p>
+                      <p className="eyebrow">{workspace.name}</p>
+                      <p className="mt-2 text-[26px] font-extrabold leading-none tracking-[-0.045em] text-slate-800 dark:text-white">My documents</p>
+                      <p className="mt-2.5 max-w-md text-sm leading-relaxed text-slate-400">Saved JSON files in this workspace. Switch workspaces from the left panel.</p>
                     </div>
                   </div>
+
+                  {/* Zero documents used to render nothing at all — an
+                      empty white panel under the heading, with no cue that
+                      the workspace was empty rather than broken. Reachable
+                      on a fresh visit and by deleting the last file. */}
+                  {documents.length === 0 && (
+                    <div className="mt-8 border border-dashed border-[var(--rule-strong)] px-6 py-14 text-center" style={{ borderRadius: "var(--r-edge)" }}>
+                      <FolderOpen size={22} className="mx-auto text-slate-300 dark:text-slate-600" />
+                      <p className="mt-3 text-[15px] font-bold tracking-[-0.02em] text-slate-700 dark:text-slate-200">No saved documents</p>
+                      <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-slate-400">
+                        Documents you save in {workspace.name} appear here.
+                      </p>
+                      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          onClick={() => createDocument()}
+                          className="app-focus chrome flex h-9 items-center gap-2 bg-[var(--brand)] px-4 text-white transition-colors hover:bg-[var(--brand-hover)] dark:text-[#06201d]"
+                          style={{ borderRadius: "var(--r-edge)" }}
+                        >
+                          <FilePlus2 size={14} /> New document
+                        </button>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="app-focus chrome flex h-9 items-center gap-2 px-3 text-[var(--chrome-ink)] transition-colors hover:text-[var(--brand)]"
+                          style={{ borderRadius: "var(--r-edge)" }}
+                        >
+                          <Upload size={14} /> Import file
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                     {documents.map((doc) => (
@@ -2081,19 +2162,45 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                                 <Copy size={14} />
                               </button>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
-                                    deleteDocumentRecord(doc.name);
-                                  }
-                                }}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-                                title="Delete document"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {/* Was a native `confirm()`. Two reasons to
+                                  drop it: it renders an OS dialog with the
+                                  raw origin in it, which undoes the
+                                  crafted feel instantly; and it blocks the
+                                  whole renderer while open. Replaced with
+                                  an inline arm-then-confirm on the card
+                                  itself — destructive action still takes
+                                  two deliberate clicks, no modal. */}
+                              {confirmDeleteDoc === doc.name ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); deleteDocumentRecord(doc.name); setConfirmDeleteDoc(null); }}
+                                    className="app-focus chrome bg-rose-600 px-2 py-1 text-white transition-colors hover:bg-rose-500"
+                                    style={{ borderRadius: "var(--r-edge)" }}
+                                    title={`Permanently delete ${doc.name}`}
+                                  >
+                                    Delete
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteDoc(null); }}
+                                    className="app-focus rounded-lg p-1.5 text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                                    aria-label="Cancel delete"
+                                    title="Cancel"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteDoc(doc.name); }}
+                                  className="app-focus rounded-lg p-1.5 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                                  title="Delete document"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </div>
                           </div>
                           <p className="mt-2.5 text-xs text-slate-400">Updated {doc.updated}</p>
@@ -2213,88 +2320,65 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 </div>
               )}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--edge)] bg-white px-5 py-2.5 dark:bg-[var(--surface)]">
-                {/* Segmented Pill View Switcher Bar */}
-                <div className="flex items-center gap-1 rounded-xl border border-[var(--edge-soft)] bg-[var(--surface-soft)] p-1 dark:bg-slate-900/60">
-                  <button
-                    onClick={() => { setView("editor"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                      view === "editor" && !compareOpen
-                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    <FileCode2 size={14} />
-                    <span>Editor</span>
-                  </button>
-
-                  <button
-                    onClick={() => { setView("tree"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                      view === "tree" && !compareOpen
-                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    <Braces size={14} />
-                    <span>Tree</span>
-                  </button>
-
-                  <button
-                    onClick={() => { setView("query"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                      view === "query" && !compareOpen
-                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    <TerminalSquare size={14} />
-                    <span>Query</span>
-                  </button>
-
-                  <button
-                    onClick={() => { setView("table"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                      view === "table" && !compareOpen
-                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    <TableIcon size={14} />
-                    <span>Table</span>
-                  </button>
-
-                  <button
-                    onClick={() => { setView("graph"); setCompareOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                      view === "graph" && !compareOpen
-                        ? "bg-white text-[var(--brand)] shadow-xs border border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-[var(--brand)]"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                    <span>Graph 2D/3D</span>
-                  </button>
+                {/* ── View rail ────────────────────────────────────
+                    Was a pill-inside-a-pill segmented control: a rounded
+                    tray holding a rounded white chip with its own border
+                    and shadow. Now flush tabs sitting directly on the
+                    panel seam, active marked by a hard 2px brand
+                    underline that lands exactly on that seam. Five
+                    copy-pasted blocks collapsed into one mapped rail. */}
+                <div className="-my-2.5 flex items-stretch">
+                  {([
+                    { id: "editor", label: "Editor", icon: FileCode2 },
+                    { id: "tree", label: "Tree", icon: Braces },
+                    { id: "query", label: "Query", icon: TerminalSquare },
+                    { id: "table", label: "Table", icon: TableIcon },
+                    { id: "graph", label: "Graph 2D/3D", icon: Sparkles },
+                  ] as const).map((tab) => {
+                    const active = view === tab.id && !compareOpen;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setView(tab.id); setCompareOpen(false); }}
+                        className="app-focus chrome flex items-center gap-2 px-3.5"
+                        style={{
+                          height: 42,
+                          color: active ? "var(--brand)" : "var(--chrome-ink)",
+                          boxShadow: active ? "inset 0 -2px 0 var(--brand)" : "none",
+                        }}
+                      >
+                        <tab.icon size={14} strokeWidth={active ? 2.4 : 2} />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Quick Action Badges */}
-                <div className="flex items-center gap-2.5 text-xs font-medium text-slate-400">
+                {/* Readout side: the line count is data, so it's bare
+                    tabular mono against a hairline — not a bordered
+                    capsule competing with the actions. */}
+                <div className="flex items-center gap-3">
                   <button
                     onClick={copyJson}
-                    className="tool-button h-8 px-3 text-xs font-bold transition-all active:scale-95"
+                    className="app-focus chrome flex h-8 items-center gap-2 px-2"
+                    style={{ color: copied ? "var(--brand)" : "var(--chrome-ink)" }}
                     title="Copy JSON payload to clipboard"
                   >
-                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                    <span>{copied ? "Copied!" : "Copy Payload"}</span>
+                    {copied ? <Check size={13} /> : <Copy size={13} />}
+                    <span>{copied ? "Copied" : "Copy"}</span>
                   </button>
-                  <span className="rounded-full bg-[var(--surface-soft)] border border-[var(--edge)] px-2.5 py-1 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
-                    {lineCount} lines
+                  <span className="h-3.5 w-px bg-[var(--rule)]" />
+                  <span className="tnum font-mono text-[11px] text-slate-400 dark:text-slate-500">
+                    {lineCount} <span className="text-[var(--rule-strong)]">ln</span>
                   </span>
+                  <span className="h-3.5 w-px bg-[var(--rule)]" />
                   <button
                     onClick={() => setFullscreen((current) => !current)}
-                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-[var(--surface-soft)] dark:hover:text-white"
+                    className="app-focus p-1.5 text-slate-400 transition-colors hover:text-[var(--brand)]"
+                    style={{ borderRadius: "var(--r-edge)" }}
                     aria-label={fullscreen ? "Exit full screen" : "Full screen"}
                   >
-                    {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                    {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                   </button>
                 </div>
               </div>
@@ -2310,18 +2394,18 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       {queryResults.matches.length > 0 && <button onClick={async () => { const payload = queryResults.matches.length === 1 ? queryResults.matches[0].value : queryResults.matches.map((m) => m.value); if (await copyText(JSON.stringify(payload, null, 2))) toast.success("Query result copied as JSON"); }} className="tool-button h-10 shrink-0"><Copy size={14} /> Copy result</button>}
                     </div>
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Try:</span>
+                      <span className="eyebrow">Try:</span>
                       {["endpoints[*].name", "endpoints[?auth=true].path", "settings.*", "endpoints[0]"].map((example) => <button key={example} onClick={() => setQueryText(example)} className={`rounded-md px-2 py-1 font-mono text-[10px] transition ${queryText === example ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"}`}>{example}</button>)}
                       <span className="ml-auto hidden text-[10px] text-slate-400 sm:block">dot paths · [index] · [*] · [?field=value] · &gt; &lt; !=</span>
                     </div>
                   </div>
                   <div className="grid flex-1 overflow-hidden lg:grid-cols-2">
                     <div className="flex min-h-[240px] flex-col overflow-hidden border-b border-[var(--edge)] lg:border-b-0 lg:border-r">
-                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Document — {documentName}</span><span className="text-[10px] text-slate-400">{lineCount.toLocaleString()} lines</span></div>
+                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="eyebrow">Document — {documentName}</span><span className="text-[10px] text-slate-400">{lineCount.toLocaleString()} lines</span></div>
                       <pre className="flex-1 overflow-auto bg-[var(--surface-soft)] p-4 font-mono text-xs leading-6 text-[var(--ink)]">{json}</pre>
                     </div>
                     <div className="flex min-h-[240px] flex-col overflow-hidden">
-                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Results</span>{queryResults.matches.length > queryLimit && <span className="text-[10px] text-slate-400">showing {queryLimit.toLocaleString()} of {queryResults.matches.length.toLocaleString()}</span>}</div>
+                      <div className="flex items-center justify-between border-b border-[var(--edge)] bg-white px-4 py-2"><span className="eyebrow">Results</span>{queryResults.matches.length > queryLimit && <span className="text-[10px] text-slate-400">showing {queryLimit.toLocaleString()} of {queryResults.matches.length.toLocaleString()}</span>}</div>
                       <div className="flex-1 space-y-2.5 overflow-auto bg-[var(--surface-soft)] p-4">
                         {queryResults.error && <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">{queryResults.error}</div>}
                         {!queryResults.error && queryResults.matches.slice(0, queryLimit).map((match) => <div key={match.path} className="rounded-xl border border-[var(--edge-soft)] bg-white p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="break-all font-mono text-[10px] font-bold text-[var(--brand)]">{match.path}</p><button onClick={async () => { if (await copyText(JSON.stringify(match.value, null, 2))) toast.success("Copied"); }} className="shrink-0 rounded p-1 text-slate-300 transition hover:bg-slate-50 hover:text-[var(--brand)]" aria-label="Copy this value"><Copy size={12} /></button></div>{typeof match.value === "string" && /^https?:\/\/\S+$/i.test(match.value) ? <a href={match.value} target="_blank" rel="noopener noreferrer" className="mt-1.5 block break-all font-mono text-xs leading-5 text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800">{match.value}</a> : <pre className="mt-1.5 max-h-64 overflow-auto font-mono text-xs leading-5 text-slate-600">{previewValue(match.value)}</pre>}</div>)}
@@ -2330,7 +2414,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       </div>
                     </div>
                   </div>
-                </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} onUpdateJson={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
+                </div> : view === "graph" ? <JsonGraph json={json} dark={isDark} onUpdateJson={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "table" ? <TableView json={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} /> : view === "tree" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex flex-wrap items-center gap-2 border-b border-[var(--edge)] bg-[var(--surface-soft)] px-4 py-2"><div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Braces size={15} className="text-[var(--brand)]" /> Interactive structure <span className="hidden sm:inline">• click a value to edit it</span></div><div className="ml-auto flex items-center gap-1"><span className="mr-1 eyebrow">Levels:</span>{[1, 2, 3].map((level) => <button key={level} onClick={() => setTreeDepth(level)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === level ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>{level}</button>)}<button onClick={() => setTreeDepth(99)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 99 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Expand all</button><button onClick={() => setTreeDepth(0)} className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${treeDepth === 0 ? "bg-[var(--brand)] text-white" : "bg-white text-slate-500 shadow-sm hover:text-[var(--brand)]"}`}>Collapse all</button></div></div><div className="min-h-0 flex-1 overflow-auto p-5">{status === "valid" ? <JsonTree key={`depth-${treeDepth}`} label="root" value={JSON.parse(json)} openDepth={treeDepth} onEdit={handleTreeEdit} /> : <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">Fix the JSON syntax to view the tree.</div>}</div></div> : <JsonCodeEditor ref={cmRef} value={json} onChange={(value) => { updateJson(value); setFormatMessage(""); }} noteLines={notes.map((note) => note.line)} onNoteClick={(line) => { const target = notes.find((note) => note.line === line); if (target) jumpToNote(target); }} onContextMenu={(line, x, y) => setContextMenu({ x: Math.min(x, window.innerWidth - 220), y: Math.min(y, window.innerHeight - 80), line })} dark={isDark} />}
                 {view === "editor" && <div className="absolute bottom-5 right-5 flex items-center gap-2 rounded-lg border border-[var(--edge)] bg-white/95 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm dark:bg-[var(--surface)] dark:text-slate-300 dark:border-[#30363d]"><span className={`h-1.5 w-1.5 rounded-full ${status === "valid" ? "bg-emerald-500" : "bg-rose-500"}`} /> UTF-8 <span className="text-slate-300 dark:text-slate-600">•</span> Spaces: 2</div>}
                 {contextMenu && view === "editor" && <div onClick={(event) => event.stopPropagation()} className="fixed z-50 w-52 rounded-xl border border-[var(--edge)] bg-white p-1.5 shadow-[0_12px_35px_rgba(15,118,110,0.18)] dark:bg-[var(--surface)] dark:border-[#30363d]" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => openCommentComposer(contextMenu.line)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-700 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:text-slate-200"><MessageSquarePlus size={15} className="text-[var(--brand)]" /> Add comment on line {contextMenu.line}</button></div>}
               </div>
@@ -2346,39 +2430,56 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <button onClick={() => { setRightCollapsed(false); openCommentComposer(); }} className="rounded-lg p-2 text-[var(--brand)] transition hover:bg-[var(--brand-soft)]" aria-label="Add reference note" title="Add reference note"><MessageSquarePlus size={18} /></button>
                 </div>
               ) : (
-                <aside style={{ width: rightWidth }} className="flex h-[calc(100vh-130px)] min-h-[580px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--edge)] bg-white shadow-[0_8px_30px_rgba(38,42,70,0.04)]">
-                  <div className="border-b border-[var(--edge)] px-5 pb-4 pt-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-base font-bold tracking-[-0.025em] text-slate-800 dark:text-white">Comments & Notes</p>
-                        <p className="mt-1 text-xs text-slate-400">Contextual line annotations & @mentions.</p>
+                <aside style={{ width: rightWidth }} className="panel flex h-[calc(100vh-130px)] min-h-[580px] shrink-0 flex-col overflow-hidden">
+                  {/* Panel head: an eyebrow above a real display heading,
+                      instead of two nearly-equal grey sentences. The
+                      count is bare tabular mono, not a teal bubble. */}
+                  <div className="border-b border-[var(--rule)] px-5 pb-4 pt-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="eyebrow">Annotations</p>
+                        <p className="mt-1.5 text-[15px] font-extrabold tracking-[-0.035em] text-slate-800 dark:text-white">Notes on this file</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[var(--brand-soft)] px-1 text-xs font-bold text-[var(--brand)] shadow-2xs">
-                          {notes.length}
-                        </span>
-                        <button onClick={() => setRightCollapsed(true)} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-[var(--brand)]" aria-label="Collapse notes panel" title="Collapse notes panel">
-                          <PanelRightClose size={16} />
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <span className="tnum font-mono text-[13px] font-medium text-slate-400">{notes.length}</span>
+                        <button onClick={() => setRightCollapsed(true)} className="app-focus p-1.5 text-slate-300 transition-colors hover:text-[var(--brand)] dark:text-slate-500" style={{ borderRadius: "var(--r-edge)" }} aria-label="Collapse notes panel" title="Collapse notes panel">
+                          <PanelRightClose size={15} />
                         </button>
                       </div>
                     </div>
-                    <div className="relative mt-4">
-                      <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
-                      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes…" className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2 pl-9 pr-3 text-xs outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)] dark:focus:bg-[var(--surface)] dark:text-white" />
+                    {/* Search sits underlined like a form field on paper,
+                        not inside a filled rounded capsule. */}
+                    <div className="relative mt-4 flex items-center gap-2 border-b border-[var(--rule)] pb-1.5 transition-colors focus-within:border-[var(--brand)]">
+                      <Search size={14} className="shrink-0 text-slate-400" />
+                      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 dark:text-white" />
                     </div>
-                    <div className="mt-3 flex items-center gap-1">
+                    {/* Filters are a segmented rail of mono labels with
+                        superscript counts — reads like a spec sheet. */}
+                    <div className="mt-3.5 flex items-center gap-4">
                       {([["all", "All", notes.length], ["open", "Open", openNoteCount], ["resolved", "Resolved", notes.length - openNoteCount]] as const).map(([value, label, count]) => (
-                        <button key={value} onClick={() => setNoteFilter(value)} className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${noteFilter === value ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-[var(--edge)]"}`}>
-                          {label} {count}
+                        <button
+                          key={value}
+                          onClick={() => setNoteFilter(value)}
+                          className="app-focus chrome flex items-baseline gap-1 pb-1"
+                          style={{
+                            color: noteFilter === value ? "var(--brand)" : "var(--chrome-ink)",
+                            boxShadow: noteFilter === value ? "inset 0 -2px 0 var(--brand)" : "none",
+                          }}
+                        >
+                          {label}
+                          <span className="tnum text-[9px] opacity-60">{count}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-3.5 overflow-auto p-4">
+                  {/* Notes stack as a ledger: flush rows separated by
+                      hairlines, not a column of floating rounded cards
+                      each with its own border and shadow. */}
+                  <div className="min-h-0 flex-1 divide-y divide-[var(--rule)] overflow-auto">
                     {visibleNotes.map((note) =>
                       editingNoteId === note.id ? (
-                        <div key={note.id} className="rounded-2xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4 shadow-sm">
+                        <div key={note.id} className="border-l-2 border-[var(--brand)] bg-[var(--brand-soft)] p-4">
                           <div className="mb-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]">
                             <Pencil size={12} /> Editing comment on line {commentLine}
                           </div>
@@ -2395,20 +2496,27 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           </div>
                         </div>
                       ) : (
-                        <article key={note.id} className={`group relative overflow-hidden rounded-2xl border transition-all hover:shadow-md ${note.resolved ? "border-slate-200/70 bg-slate-50/70 opacity-75 dark:border-[#30363d] dark:bg-[var(--surface-soft)]" : "border-slate-200 bg-white dark:border-[#30363d] dark:bg-[var(--surface)]"}`}>
-                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${note.resolved ? "bg-emerald-400" : note.color || "bg-amber-400"}`} />
+                        <article key={note.id} className={`group relative transition-colors ${note.resolved ? "bg-[var(--surface-soft)] opacity-70" : "bg-[var(--surface)] hover:bg-[var(--surface-soft)]"}`}>
+                          {/* A 2px signal edge, not a 6px candy stripe. */}
+                          <div className={`absolute bottom-0 left-0 top-0 w-[2px] ${note.resolved ? "bg-emerald-400" : note.color || "bg-amber-400"}`} />
 
-                          <div className="p-4 pl-4.5">
+                          <div className="p-4 pl-[18px]">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
-                                <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                                  <span onClick={() => jumpToNote(note)} className="cursor-pointer inline-flex items-center gap-1 rounded bg-[var(--brand-soft)] border border-[var(--brand-border)] px-1.5 py-0.2 font-mono text-[10px] font-bold text-[var(--brand)] transition hover:bg-[var(--brand)] hover:text-white">
-                                    Line {note.line}
+                                {/* Line number set like a margin
+                                    reference: bare tabular mono after a
+                                    hairline tick, no capsule. */}
+                                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                  <span onClick={() => jumpToNote(note)} className="tnum cursor-pointer font-mono text-[10px] font-medium tracking-[0.06em] text-[var(--brand)] transition-colors hover:underline">
+                                    L{note.line}
                                   </span>
                                   {note.path && (
-                                    <span className="truncate max-w-[150px] font-mono text-[10px] text-slate-400">
-                                      {note.path}
-                                    </span>
+                                    <>
+                                      <span className="h-2.5 w-px bg-[var(--rule)]" />
+                                      <span className="max-w-[150px] truncate font-mono text-[10px] text-slate-400">
+                                        {note.path}
+                                      </span>
+                                    </>
                                   )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-1.5">
@@ -2416,17 +2524,16 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                                     {note.title}
                                   </p>
                                   {note.resolved && (
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-2xs dark:border-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                    <span className="chrome inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                                       <CircleCheck size={11} /> Resolved
                                     </span>
                                   )}
                                 </div>
+                                {/* Mention reads as a byline, not a chip. */}
                                 {note.mention && (
-                                  <div className="mt-1.5">
-                                    <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/80 bg-teal-50/80 px-2 py-0.5 text-[11px] font-bold text-teal-800 shadow-2xs dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-300">
-                                      <AtSign size={11} className="text-teal-600 dark:text-teal-400" />
-                                      {note.mention}
-                                    </span>
+                                  <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--brand)]">
+                                    <AtSign size={11} className="shrink-0 opacity-70" />
+                                    {note.mention}
                                   </div>
                                 )}
                               </div>
@@ -2489,7 +2596,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                                 <Code2 size={13} className="text-[var(--brand)]" />
                                 {note.path}
                               </span>
-                              <span className="flex items-center gap-1 font-sans text-[10px] font-bold uppercase tracking-wide text-slate-400 transition-colors group-hover:text-[var(--brand)]">
+                              <span className="flex items-center gap-1 font-sans eyebrow transition-colors group-hover:text-[var(--brand)]">
                                 Line {note.line}
                                 <ChevronDown size={13} className="-rotate-90 transition-transform group-hover:translate-x-0.5" />
                               </span>
@@ -2499,7 +2606,25 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       )
                     )}
 
-                    {visibleNotes.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No matching notes.</p>}
+                    {/* Two different nothings. "No matching notes" is only
+                        true when a search or filter is actually hiding
+                        something; on a fresh document there is nothing to
+                        match yet, and saying so implies the user has
+                        notes they can't see. */}
+                    {visibleNotes.length === 0 && (
+                      notes.length === 0 ? (
+                        <div className="px-5 py-10 text-center">
+                          <p className="text-[13px] font-semibold text-slate-500 dark:text-slate-400">No notes yet</p>
+                          <p className="mx-auto mt-1.5 max-w-[220px] text-xs leading-relaxed text-slate-400">
+                            Right-click any line in the editor to pin a note to it.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="px-5 py-10 text-center text-[13px] text-slate-400">
+                          No notes match {search ? "that search" : "this filter"}.
+                        </p>
+                      )
+                    )}
 
                     {showComposer && !editingNoteId ? (
                       <div className="rounded-2xl border border-[var(--brand-border)] bg-[var(--brand-soft-hover)] p-4 shadow-sm">
@@ -2534,51 +2659,38 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
       {/* Modern Developer-Focused Footer */}
       <footer className="relative overflow-hidden border-t border-[var(--edge)] bg-[var(--surface-soft)] text-slate-600 dark:text-slate-400">
         <div className="relative z-10 mx-auto max-w-7xl px-6 py-12 lg:px-12">
-          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-6">
             {/* Brand Column */}
             <div className="space-y-4 md:col-span-2">
-              <div className="flex items-center gap-2">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-white shadow-md">
-                  <Braces size={20} />
+              {/* Footer lockup repeats the header's die-stamp and the
+                  two-typeface wordmark, so the brand reads the same at
+                  both ends of the page. BETA is a mono tag, not a pill. */}
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center bg-[var(--brand)] text-white" style={{ borderRadius: "var(--r-edge)" }}>
+                  <Braces size={19} strokeWidth={2.6} />
                 </span>
-                <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  JSONDesk
+                <span className="flex items-baseline text-xl text-slate-900 dark:text-white">
+                  <span className="font-mono font-medium tracking-[-0.02em]">JSON</span>
+                  <span className="font-extrabold tracking-[-0.045em]">Desk</span>
                 </span>
-                <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--brand)]">
-                  BETA
-                </span>
+                <span className="chrome border-l border-[var(--rule)] pl-3 text-[var(--brand)]">Beta</span>
               </div>
-              <p className="max-w-sm text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                A fast, secure, and 100% client-side JSON editor, formatter, and line-annotation tool designed for modern engineering teams.
+              <p className="max-w-sm text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">
+                A fast, secure, 100% client-side JSON editor, formatter, and line-annotation tool for engineering teams.
               </p>
-              <div className="flex items-center gap-2 pt-1 text-xs text-slate-500">
-                <span>Made with <Heart size={13} className="inline fill-rose-500 text-rose-500" /> for developers worldwide</span>
-              </div>
-              {/* Communication Links */}
-              <div className="flex items-center gap-2 pt-2">
-                {[
-                  { icon: Mail, label: "Direct Email", href: "https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" },
-                  { icon: MessageCircle, label: "WhatsApp Support", href: "https://wa.me/919398548188" },
-                  { icon: Phone, label: "Direct Call", href: "tel:+919398548188" },
-                ].map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={item.label}
-                    title={item.label}
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--edge)] bg-white text-slate-500 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:bg-[var(--surface)] dark:text-slate-300"
-                  >
-                    <item.icon size={15} />
-                  </a>
-                ))}
-              </div>
+              {/* "Made with ❤️ for developers worldwide" retired — the
+                  emoji-heart signoff is stock filler. This states the one
+                  thing that's actually true and differentiating. */}
+              <p className="eyebrow pt-1">No server · No upload · No account</p>
+              {/* The three icon buttons that sat here duplicated the
+                  email / WhatsApp / phone links already spelled out in
+                  the Contact column. Contact details belong in one
+                  place, written out, where they can be read and copied. */}
             </div>
 
             {/* Features Column */}
             <div className="space-y-3 text-xs">
-              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Product Features</h5>
+              <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Product Features</h5>
               <ul className="space-y-2 text-slate-500 dark:text-slate-400">
                 <li><button onClick={() => setView("editor")} className="hover:text-[var(--brand)]">JSON Editor & Formatter</button></li>
                 <li><button onClick={() => setView("tree")} className="hover:text-[var(--brand)]">Interactive Tree View</button></li>
@@ -2591,7 +2703,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
             {/* Tools & Conversions Column */}
             <div className="space-y-3 text-xs">
-              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Tools & Conversions</h5>
+              <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Tools & Conversions</h5>
               <ul className="space-y-2 text-slate-500 dark:text-slate-400">
                 <li><button onClick={() => { setConvertFormatId("yaml"); setConvertOpen(true); }} className="hover:text-[var(--brand)]">JSON to YAML Converter</button></li>
                 <li><button onClick={() => { setConvertFormatId("xml"); setConvertOpen(true); }} className="hover:text-[var(--brand)]">JSON to XML Converter</button></li>
@@ -2602,34 +2714,63 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               </ul>
             </div>
 
-            {/* Connect & Support Column */}
+            {/* Support Column */}
             <div className="space-y-3 text-xs">
-              <h5 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Connect & Support</h5>
+              <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Support</h5>
               <ul className="space-y-2 text-slate-500 dark:text-slate-400">
                 <li><button onClick={() => { setHelpTab("query"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Submit a Query</button></li>
                 <li><button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Get in Touch</button></li>
-                <li><button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Shortcuts & FAQ</button></li>
-                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">chennadvp7799@gmail.com</a></li>
-                <li><a href="https://wa.me/919398548188" target="_blank" rel="noreferrer" className="font-mono text-[11px] hover:text-[var(--brand)]">+91 9398548188</a></li>
+                <li><button onClick={() => setFaqOpen(true)} className="hover:text-[var(--brand)]">Shortcuts &amp; FAQ</button></li>
+                <li><button onClick={() => setTourOpen(true)} className="hover:text-[var(--brand)]">Take a Tour</button></li>
               </ul>
             </div>
-          </div>
 
-          {/* Bottom Copyright Bar */}
-          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-[var(--edge-soft)] pt-6 text-xs text-slate-400 sm:flex-row">
-            <p>© {new Date().getFullYear()} JSONDesk. All rights reserved. 100% Client-side privacy.</p>
-            <div className="flex items-center gap-4 text-[11px]">
-              <button onClick={() => { setHelpTab("faq"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Client-Side Privacy</button>
-              <span>•</span>
-              <button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="hover:text-[var(--brand)]">Direct Support</button>
+            {/* Contact Column — absorbed from the second footer, which
+                carried the only copies of the LinkedIn / GitHub / Medium
+                links. They were bordered pills there; here they're plain
+                links so all four columns read as one list system. */}
+            <div className="space-y-3 text-xs">
+              <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Contact</h5>
+              <ul className="space-y-2 text-slate-500 dark:text-slate-400">
+                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Mail size={13} className="shrink-0 opacity-60" /> Email</a></li>
+                <li><a href="https://wa.me/919398548188" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><MessageCircle size={13} className="shrink-0 opacity-60" /> WhatsApp</a></li>
+                <li><a href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Globe size={13} className="shrink-0 opacity-60" /> LinkedIn <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
+                <li><a href="https://github.com/chenna8464" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Code2 size={13} className="shrink-0 opacity-60" /> GitHub <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
+                <li><a href="https://medium.com/@chennadvp7799" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><FileText size={13} className="shrink-0 opacity-60" /> Medium <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
+              </ul>
+              <p className="pt-1 font-mono text-[10px] leading-relaxed text-slate-400">
+                chennadvp7799@gmail.com<br />+91 9398548188
+              </p>
             </div>
           </div>
+
+          {/* ── Wordmark sign-off ──────────────────────────────────
+              Sits in the dead space between the link columns and the
+              divider, as its own block in the layout — so it's whole and
+              readable rather than bleeding behind body text (the first
+              version) or cropped in half by the footer edge (the second).
+              Nothing overlaps it, so it can carry real presence at low
+              opacity. aria-hidden: it's typographic texture, and the
+              wordmark is already announced by the lockup above. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none mt-12 select-none text-center font-extrabold leading-[0.85] tracking-[-0.055em] text-[var(--ink)] opacity-[0.06] dark:opacity-[0.11]"
+            style={{ fontSize: "clamp(56px, 13vw, 168px)" }}
+          >
+            JSONDesk
+          </div>
+
+          {/* Bottom bar. Carries the author attribution that was
+              previously stranded in the second footer's copyright line. */}
+          <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-[var(--rule)] pt-6 text-[11px] text-slate-400 sm:flex-row sm:items-center">
+            <p>
+              © {new Date().getFullYear()} JSONDesk by Chenna Kesava Reddy Devapatla.
+              <span className="ml-1.5 text-slate-400/80">All data stays local — zero server uploads.</span>
+            </p>
+            <button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="shrink-0 hover:text-[var(--brand)]">Direct Support</button>
+          </div>
         </div>
 
-        {/* Large Subtle Background Watermark */}
-        <div className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 select-none text-[70px] font-black tracking-widest text-slate-200/40 dark:text-slate-800/20 sm:text-[110px] md:text-[140px]">
-          JSONDesk
-        </div>
       </footer>
 
       {/* Product Walkthrough / Tour Modal */}
@@ -2758,17 +2899,14 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
           <div onClick={(event) => event.stopPropagation()} className="flex max-h-[92vh] w-[94vw] max-w-4xl flex-col rounded-2xl border border-[var(--edge)] bg-white p-6 shadow-2xl dark:border-[#30363d] dark:bg-[#161b22] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
             {/* FAQ Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--edge)] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500 ring-1 ring-teal-500/20">
-                  <CircleHelp size={22} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    Frequently Asked Questions
-                    <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold text-teal-600 dark:text-teal-400 border border-teal-500/20">Knowledge Base</span>
-                  </h3>
-                  <p className="text-xs text-slate-400">Everything you need to know about JSONote features, auto-repair, privacy, & keyboard shortcuts.</p>
-                </div>
+              {/* No icon-in-a-tinted-tile, no "Knowledge Base" badge.
+                  An eyebrow, a real display heading, and a sentence. */}
+              <div className="min-w-0">
+                <p className="eyebrow">Knowledge base</p>
+                <h3 className="mt-2 text-[24px] font-extrabold leading-none tracking-[-0.045em] text-slate-800 dark:text-white">
+                  Frequently asked questions
+                </h3>
+                <p className="mt-2.5 max-w-lg text-xs leading-relaxed text-slate-400">Features, auto-repair, privacy, and keyboard shortcuts.</p>
               </div>
               <button onClick={() => setFaqOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close FAQ">
                 <X size={18} />
@@ -2783,8 +2921,8 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   type="text"
                   value={faqSearch}
                   onChange={(e) => setFaqSearch(e.target.value)}
-                  placeholder="Search any question, feature, syntax repair, or keyboard shortcut..."
-                  className="w-full rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] py-2.5 pl-10 pr-10 text-xs font-medium text-slate-800 outline-none transition focus:border-[var(--brand-border)] focus:bg-white focus:ring-2 focus:ring-[var(--brand-ring)] dark:text-white dark:focus:bg-[var(--surface)]"
+                  placeholder="Search questions, features, or shortcuts"
+                  className="w-full border-b border-[var(--rule)] bg-transparent py-2.5 pl-10 pr-10 text-sm font-medium text-slate-800 outline-none transition-colors focus:border-[var(--brand)] dark:text-white"
                 />
                 {faqSearch && (
                   <button onClick={() => setFaqSearch("")} className="absolute right-3 top-2.5 rounded p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -2793,35 +2931,43 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 )}
               </div>
 
-              {/* Category Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 pb-1">
+              {/* Category filters. The decorative emoji are gone —
+                  ⚡🛠️🔍🔄🕒🔒⌨️ on filter chips is the loudest tell of a
+                  generated UI, and they carried no information the label
+                  didn't already state. Counts ride as superscripts. */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-1">
                 {[
-                  { id: "all", label: "All Questions", count: FAQ_ITEMS.length },
-                  { id: "general", label: "⚡ Getting Started", count: FAQ_ITEMS.filter(i => i.category === "general").length },
-                  { id: "repair", label: "🛠️ JSON Repair", count: FAQ_ITEMS.filter(i => i.category === "repair").length },
-                  { id: "views", label: "🔍 Views & Query", count: FAQ_ITEMS.filter(i => i.category === "views").length },
-                  { id: "convert", label: "🔄 Convert & Code", count: FAQ_ITEMS.filter(i => i.category === "convert").length },
-                  { id: "history", label: "🕒 History & Share", count: FAQ_ITEMS.filter(i => i.category === "history").length },
-                  { id: "privacy", label: "🔒 Privacy & Offline", count: FAQ_ITEMS.filter(i => i.category === "privacy").length },
-                  { id: "hotkeys", label: "⌨️ Keyboard Hotkeys", count: 8 },
+                  { id: "all", label: "All", count: FAQ_ITEMS.length },
+                  { id: "general", label: "Getting started", count: FAQ_ITEMS.filter(i => i.category === "general").length },
+                  { id: "repair", label: "Repair", count: FAQ_ITEMS.filter(i => i.category === "repair").length },
+                  { id: "views", label: "Views & query", count: FAQ_ITEMS.filter(i => i.category === "views").length },
+                  { id: "convert", label: "Convert & code", count: FAQ_ITEMS.filter(i => i.category === "convert").length },
+                  { id: "history", label: "History & share", count: FAQ_ITEMS.filter(i => i.category === "history").length },
+                  { id: "privacy", label: "Privacy", count: FAQ_ITEMS.filter(i => i.category === "privacy").length },
+                  { id: "hotkeys", label: "Hotkeys", count: 8 },
                 ].map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setFaqCategory(cat.id)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${faqCategory === cat.id ? "bg-[var(--brand)] text-white shadow-xs" : "bg-[var(--surface-soft)] text-slate-500 hover:bg-slate-200/60 hover:text-[var(--brand)] dark:text-slate-300 dark:hover:bg-[var(--edge)]"}`}
+                    className="app-focus chrome flex items-baseline gap-1 pb-1"
+                    style={{
+                      color: faqCategory === cat.id ? "var(--brand)" : "var(--chrome-ink)",
+                      boxShadow: faqCategory === cat.id ? "inset 0 -2px 0 var(--brand)" : "none",
+                    }}
                   >
-                    {cat.label} ({cat.count})
+                    {cat.label}
+                    <span className="tnum text-[9px] opacity-60">{cat.count}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Questions List & Content Area */}
-            <div className="mt-4 min-h-0 flex-1 overflow-auto pr-1 space-y-3">
+            <div className="mt-4 min-h-0 flex-1 overflow-auto border-t border-[var(--rule)] pr-1">
               {faqCategory === "hotkeys" ? (
-                <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
-                  <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white mb-3">
-                    ⌨️ Keyboard Shortcuts Cheat Sheet
+                <div className="pt-4">
+                  <h4 className="mb-4 text-[17px] font-extrabold tracking-[-0.035em] text-slate-800 dark:text-white">
+                    Keyboard shortcuts
                   </h4>
                   <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
                     {[
@@ -2834,9 +2980,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       { key: "Right-Click Line", desc: "Add line reference note / comment" },
                       { key: "Click Tree Node", desc: "Inline edit JSON AST property value" },
                     ].map((hk) => (
-                      <div key={hk.key} className="flex items-center justify-between rounded-lg border border-[var(--edge)] bg-white p-2.5 dark:bg-[var(--surface)]">
-                        <span className="text-slate-600 dark:text-slate-300 font-medium">{hk.desc}</span>
-                        <kbd className="rounded border border-[var(--edge)] bg-[var(--surface-soft)] px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--brand)]">{hk.key}</kbd>
+                      /* Dot-leader rows, like an index. The binding is
+                         the anchor on the right; the rule connects them. */
+                      <div key={hk.key} className="flex items-baseline gap-2 border-b border-[var(--rule)] py-2">
+                        <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">{hk.desc}</span>
+                        <span className="h-px min-w-3 flex-1 bg-[var(--rule)]" />
+                        <kbd className="shrink-0 font-mono text-[10px] font-medium tracking-[0.03em] text-[var(--brand)]">{hk.key}</kbd>
                       </div>
                     ))}
                   </div>
@@ -2857,27 +3006,24 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     return (
                       <div
                         key={faq.id}
-                        className={`rounded-xl border transition-all ${isExpanded ? "border-[var(--brand-border)] bg-[var(--surface-soft)] shadow-sm" : "border-[var(--edge)] bg-white hover:border-[var(--brand-border)] dark:bg-[var(--surface)]"}`}
+                        className="border-b border-[var(--rule)] transition-colors"
+                        style={{ boxShadow: isExpanded ? "inset 2px 0 0 var(--brand)" : "none" }}
                       >
                         <button
                           onClick={() => setExpandedFaqId(isExpanded ? null : faq.id)}
-                          className="flex w-full items-start justify-between gap-3 p-4 text-left"
+                          className="group flex w-full items-baseline justify-between gap-4 py-3.5 pl-3.5 pr-2 text-left"
                         >
-                          <div className="min-w-0 flex-1">
-                            <span className="inline-block rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand)] mb-1.5">
-                              {faq.categoryLabel}
-                            </span>
-                            <h4 className="text-sm font-bold text-slate-800 dark:text-white leading-snug">
-                              {faq.question}
-                            </h4>
-                          </div>
-                          <div className="mt-1 shrink-0 rounded-lg p-1 text-slate-400 transition-transform">
-                            <ChevronDown size={16} className={`transition-transform duration-200 ${isExpanded ? "rotate-180 text-[var(--brand)]" : ""}`} />
-                          </div>
+                          <h4 className={`min-w-0 flex-1 text-[15px] font-bold leading-snug tracking-[-0.02em] transition-colors ${isExpanded ? "text-[var(--brand)]" : "text-slate-800 group-hover:text-[var(--brand)] dark:text-white"}`}>
+                            {faq.question}
+                          </h4>
+                          {/* Category demoted to a quiet mono tag on the
+                              right — it labels, it doesn't announce. */}
+                          <span className="eyebrow hidden shrink-0 sm:block">{faq.categoryLabel}</span>
+                          <ChevronDown size={15} className={`mt-0.5 shrink-0 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180 text-[var(--brand)]" : ""}`} />
                         </button>
 
                         {isExpanded && (
-                          <div className="border-t border-[var(--edge)] px-4 pb-4 pt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          <div className="max-w-2xl pb-4 pl-3.5 pr-8 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
                             <p>{faq.answer}</p>
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--edge-soft)] pt-2.5">
                               <div className="flex flex-wrap gap-1">
@@ -2992,7 +3138,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                       <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${encodeURIComponent(`[JSONote Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${encodeURIComponent(`[JSONDesk Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-4 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
@@ -3000,7 +3146,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                         <Send size={14} /> Open Gmail Web
                       </a>
                       <a
-                        href={`mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(`[JSONote Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        href={`mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(`[JSONDesk Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
                         className="tool-button"
                       >
                         Open Mail App
@@ -3015,7 +3161,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Your Name *</label>
+                        <label className="block eyebrow">Your Name *</label>
                         <input
                           type="text"
                           required
@@ -3026,7 +3172,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Email Address *</label>
+                        <label className="block eyebrow">Email Address *</label>
                         <input
                           type="email"
                           required
@@ -3040,7 +3186,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Query Category</label>
+                        <label className="block eyebrow">Query Category</label>
                         <select
                           value={supportCategory}
                           onChange={(e) => setSupportCategory(e.target.value)}
@@ -3053,7 +3199,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Subject</label>
+                        <label className="block eyebrow">Subject</label>
                         <input
                           type="text"
                           value={supportSubject}
@@ -3065,7 +3211,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wide text-slate-400">Query Details / Message *</label>
+                      <label className="block eyebrow">Query Details / Message *</label>
                       <textarea
                         required
                         rows={4}
@@ -3126,7 +3272,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                         <a
-                          href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONote%20Inquiry"
+                          href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry"
                           target="_blank"
                           rel="noreferrer"
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
@@ -3134,7 +3280,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           <Send size={13} /> Open Gmail Web
                         </a>
                         <a
-                          href="mailto:chennadvp7799@gmail.com?subject=JSONote%20Inquiry"
+                          href="mailto:chennadvp7799@gmail.com?subject=JSONDesk%20Inquiry"
                           className="flex items-center justify-center gap-1 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:bg-[var(--surface)] dark:text-slate-200"
                         >
                           <Mail size={13} /> Mail App
@@ -3231,7 +3377,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                       <form onSubmit={handleCallbackSubmit} className="mt-3 space-y-3">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Your Phone Number *</label>
+                            <label className="block eyebrow">Your Phone Number *</label>
                             <input
                               type="tel"
                               required
@@ -3242,7 +3388,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Preferred Time Window</label>
+                            <label className="block eyebrow">Preferred Time Window</label>
                             <select
                               value={callbackTime}
                               onChange={(e) => setCallbackTime(e.target.value)}
@@ -3336,22 +3482,6 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
                   </div>
 
-                  {/* Dev Test Error Screen Trigger */}
-                  <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 dark:border-rose-950 dark:bg-rose-950/30">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-rose-700 dark:text-rose-300">⚡ Test Error & Email Alert System</p>
-                        <p className="text-[11px] text-slate-500">Preview what users see if an unhandled runtime error happens during high traffic.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSimulateError(true)}
-                        className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-500"
-                      >
-                        <Bug size={13} /> Test Error UI
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -3368,14 +3498,14 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             ) : (
               <>
                 <p className="mt-1 text-xs text-slate-400">Sort an array (by field, or its values directly) or sort an object's keys alphabetically.</p>
-                <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-slate-400">Target</label>
+                <label className="mt-4 block eyebrow">Target</label>
                 <select value={sortTargetKey ?? sortCandidates[0]?.key ?? "__root_object__"} onChange={(event) => { setSortTargetKey(event.target.value); setSortField(""); }} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                   {sortCandidates.map((c) => <option key={c.key} value={c.key}>{c.key === "root" ? "Root array" : `"${c.key}" array`}</option>)}
                   {(() => { try { const v = JSON.parse(json); return v !== null && typeof v === "object" && !Array.isArray(v); } catch { return false; } })() && <option value="__root_object__">Root object — sort keys A→Z</option>}
                 </select>
                 {sortTargetKey !== "__root_object__" && (sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.length ?? 0) > 0 && (
                   <>
-                    <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-slate-400">Sort by field</label>
+                    <label className="mt-3 block eyebrow">Sort by field</label>
                     <select value={sortField} onChange={(event) => setSortField(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                       <option value="">(sort values directly)</option>
                       {sortCandidates.find((c) => c.key === (sortTargetKey ?? sortCandidates[0]?.key))?.fields.map((field) => <option key={field} value={field}>{field}</option>)}
@@ -3438,12 +3568,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-800 dark:text-white">Generate code from JSON</p><button onClick={() => setCodegenOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-1 text-xs text-slate-400">Typed models generated from your document — runs entirely in your browser, nothing is uploaded.</p>
             <div className="mt-3 flex flex-wrap items-end gap-3">
-              <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Language</span>
+              <label className="flex flex-col gap-1"><span className="eyebrow">Language</span>
                 <select value={codegenLangIndex} onChange={(event) => { setCodegenLangIndex(Number(event.target.value)); }} className="rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white">
                   {CODEGEN_LANGUAGES.map((lang, index) => <option key={`${lang.id}-${index}`} value={index}>{lang.label}</option>)}
                 </select>
               </label>
-              <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Root type name</span>
+              <label className="flex flex-col gap-1"><span className="eyebrow">Root type name</span>
                 <input value={codegenRootName} onChange={(event) => setCodegenRootName(event.target.value)} placeholder="Root" className="w-40 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-border)] dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:text-white" />
               </label>
               <button onClick={runCodegen} disabled={codegenLoading} className="flex items-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{codegenLoading ? <Loader2 size={16} className="animate-spin" /> : <FileCode2 size={16} />} Generate</button>
@@ -3593,82 +3723,6 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
         </div>
       )}
 
-      {/* Main App Footer */}
-      <footer className="mt-12 border-t border-[var(--edge)] bg-white px-6 py-8 dark:border-[#30363d] dark:bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--ink-solid)] text-white shadow-sm">
-              <Braces size={20} strokeWidth={2.6} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-slate-800 dark:text-white tracking-tight">JSONDesk</span>
-                <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold text-[var(--brand)] border border-teal-500/20">
-                  Free & 100% Private
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">The privacy-first JSON workspace for developers. Built with ❤️</p>
-            </div>
-          </div>
-
-          {/* Social & Contact Links */}
-          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-            {/* Email */}
-            <a
-              href="mailto:chennadvp7799@gmail.com"
-              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-[var(--brand-border)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] dark:border-[#30363d] dark:bg-[var(--surface-soft)]"
-            >
-              <Mail size={15} className="text-[var(--brand)]" />
-              <span>chennadvp7799@gmail.com</span>
-            </a>
-
-            {/* LinkedIn */}
-            <a
-              href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-sky-950/40 dark:hover:text-sky-400"
-            >
-              <Globe size={15} className="text-sky-500" />
-              <span>LinkedIn</span>
-              <ExternalLink size={11} className="text-slate-400" />
-            </a>
-
-            {/* GitHub */}
-            <a
-              href="https://github.com/chenna8464"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-slate-800 dark:hover:text-white"
-            >
-              <Code2 size={15} className="text-slate-700 dark:text-slate-300" />
-              <span>GitHub</span>
-              <ExternalLink size={11} className="text-slate-400" />
-            </a>
-
-            {/* Medium */}
-            <a
-              href="https://medium.com/@chennadvp7799"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] px-3 py-2 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-[#30363d] dark:bg-[var(--surface-soft)] dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
-            >
-              <FileText size={15} className="text-emerald-600 dark:text-emerald-400" />
-              <span>Medium</span>
-              <ExternalLink size={11} className="text-slate-400" />
-            </a>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-6 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-[var(--edge-soft)] pt-4 text-[11px] text-slate-400 sm:flex-row">
-          <p>© {new Date().getFullYear()} JSONDesk by Chenna Kesava Reddy Devapatla. All data encrypted locally — zero server uploads.</p>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setFaqOpen(true)} className="hover:text-[var(--brand)]">FAQ & Guide</button>
-            <button onClick={() => setTourOpen(true)} className="hover:text-[var(--brand)]">Take a Tour</button>
-            <button onClick={() => setHelpOpen(true)} className="hover:text-[var(--brand)]">Contact Support</button>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }
