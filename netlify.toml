@@ -3,7 +3,11 @@
   functions = "netlify/functions"
   publish = "dist/spa"
 
+[build.environment]
+  PNPM_FLAGS = "--no-frozen-lockfile"
+
 [functions]
+
   external_node_modules = ["express"]
   node_bundler = "esbuild"
 
