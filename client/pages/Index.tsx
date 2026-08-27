@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   AtSign,
@@ -52,10 +53,7 @@ import {
   WandSparkles,
   X,
   Mail,
-  Phone,
   Send,
-  MessageCircle,
-  Clock,
   ExternalLink,
   Globe,
   Camera,
@@ -99,7 +97,7 @@ import { repairJson } from "@/lib/jsonRepair";
 import { getJsonErrorLine } from "@/lib/utils";
 import { buildComparisonReport, diffLines, lineStatusMaps, valueDiffs, type LineStatus } from "@/lib/diff";
 import { copyText, downloadFile } from "@/lib/share";
-import { buildSnapshotLink, embedNotesInJson, extractAnnotatedJsonNotes, generateShortAlias, parseSnapshotFile, readSnapshotFromHash, serializeSnapshotFile, type Snapshot } from "@/lib/snapshot";
+import { buildSnapshotLink, classifyShareLink, embedNotesInJson, extractAnnotatedJsonNotes, parseSnapshotFile, readSnapshotFromHash, serializeSnapshotFile, snapshotFileName, type Snapshot } from "@/lib/snapshot";
 import { csvToJson, extractCsvNotesAndData, jsonToCsv, queryJson, setAtPath } from "@/lib/convert";
 import { CODEGEN_LANGUAGES, generateCode } from "@/lib/codegen";
 import { CONVERT_FORMATS, formatToJson, jsonToFormat, type ConvertFormat } from "@/lib/convertFormats";
@@ -683,6 +681,56 @@ export default function Index() {
   const [tourOpen, setTourOpen] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
+  /**
+   * Window-wide file drop.
+   *
+   * Dragging a session file onto the page is the first thing most people
+   * try, and it previously did nothing — the browser just navigated away
+   * from the app to render the raw JSON, which looks like a crash and
+   * loses whatever was in the editor.
+   *
+   * Two things matter here. Only react when the drag actually carries
+   * FILES: CodeMirror supports dragging text within the editor, and
+   * hijacking those drags would break selection-dragging. And track enter
+   * and leave with a counter, because dragleave fires every time the
+   * pointer crosses a child element, so a naive boolean flickers.
+   */
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragActive = dragDepth > 0;
+
+  const dragHasFiles = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes("Files");
+
+  const onDragEnter = (event: React.DragEvent) => {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault();
+    setDragDepth((d) => d + 1);
+  };
+
+  const onDragOver = (event: React.DragEvent) => {
+    if (!dragHasFiles(event)) return;
+    // Without preventDefault on dragover the drop event never fires.
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDragLeave = (event: React.DragEvent) => {
+    if (!dragHasFiles(event)) return;
+    setDragDepth((d) => Math.max(0, d - 1));
+  };
+
+  const onDrop = (event: React.DragEvent) => {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault();
+    setDragDepth(0);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (event.dataTransfer.files.length > 1) {
+      toast.info(`Opening ${file.name}`, { description: "One file at a time — the rest were ignored." });
+    }
+    importFile(file);
+  };
+
   const pipWindowRef = useRef<Window | null>(null);
   const [helpTab, setHelpTab] = useState<"query" | "contact" | "faq">("query");
   const [supportName, setSupportName] = useState("");
@@ -693,9 +741,8 @@ export default function Index() {
   const [supportIncludeJson, setSupportIncludeJson] = useState(true);
   const [querySubmitted, setQuerySubmitted] = useState(false);
   const [queryRefId, setQueryRefId] = useState("");
-  const [callbackPhone, setCallbackPhone] = useState("");
-  const [callbackTime, setCallbackTime] = useState("Morning (9 AM - 12 PM)");
-  const [callbackSubmitted, setCallbackSubmitted] = useState(false);
+  // Callback-request state removed with the phone/WhatsApp contact options:
+  // the owner's number should not be published, so there is no call path.
 
   const filteredFaqs = useMemo(() => {
     return FAQ_ITEMS.filter((item) => {
@@ -895,22 +942,10 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     toast.success(`Query #${refId} registered! Opening Gmail Web Compose...`);
   };
 
-  const handleCallbackSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!callbackPhone.trim()) {
-      toast.error("Please enter your phone number for callback.");
-      return;
-    }
-    setCallbackSubmitted(true);
-    toast.success("Callback request submitted! We will call you at your preferred time.");
-  };
-
   const resetSupportForms = () => {
     setQuerySubmitted(false);
-    setCallbackSubmitted(false);
     setSupportSubject("");
     setSupportMessage("");
-    setCallbackPhone("");
   };
   const [sortOpen, setSortOpen] = useState(false);
   const [sortTargetKey, setSortTargetKey] = useState<string | null>(null);
@@ -1745,17 +1780,29 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
     const snapshot = buildSnapshot(includeCompare);
     const link = buildSnapshotLink(snapshot);
     const label = includeCompare ? "Comparison link" : "Share link";
-    // Even gzip-compressed, a very large session can exceed the browser URL
-    // cap (~65-80k). Rather than hand out a link that silently won't open,
-    // fall back to a snapshot file that carries the same session losslessly.
-    if (link.length > 60_000) {
-      shareAsFile(includeCompare);
-      toast.info("Document too large for a link — shared as a snapshot file instead", {
-        description: "Send the downloaded .jsonote file. The recipient imports it to see everything, including the differences.",
+    const fit = classifyShareLink(link.length);
+    const chars = link.length.toLocaleString();
+
+    // Past SHARE_LINK_MAX the link is a liability, so hand over the snapshot
+    // file instead. The old threshold here was 60,000 characters, chosen
+    // against the browser URL cap — but the browser was never the binding
+    // constraint (a hash fragment is never sent anywhere). What actually
+    // breaks is the paste target: chat message caps and mail clients that
+    // line-wrap and split the URL. So this now trips far earlier.
+    if (fit === "too-long") {
+      shareAsFile(includeCompare, true);
+      toast.info(`Too large to share as a link (${chars} characters)`, {
+        description: "Sent as a .jsonote snapshot file instead — it carries the same session, at any size. The recipient imports it to restore everything.",
       });
       return;
     }
-    if (navigator.share) {
+
+    // Only hand a link to the OS share sheet when it's actually safe to
+    // paste. `navigator.share` exists on desktop Chrome/Safari too, so a
+    // "long" link would otherwise be passed straight to the share sheet and
+    // the size warning below would never be reached — the user would send a
+    // link that breaks on arrival with no indication anything was wrong.
+    if (fit === "safe" && navigator.share) {
       try {
         await navigator.share({ title: documentName, url: link });
         toast.success("Shared");
@@ -1765,29 +1812,47 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
         // fall through to clipboard
       }
     }
-    const ok = await copyText(link);
-    if (ok) toast.success(`${label} copied to clipboard`, { description: `Compressed compact URL (${link.length} chars). 100% self-contained!` });
-    else toast.error("Could not copy the link — check browser clipboard permissions");
-  };
 
-  const shareShortAliasLink = async (includeCompare: boolean) => {
-    const snapshot = buildSnapshot(includeCompare);
-    const alias = generateShortAlias(snapshot);
-    const link = `${window.location.origin}${window.location.pathname}#s=${alias}`;
-    await copyText(link);
-    toast.success("Copied 6-char ultra-short link!", {
-      description: `Mini link: ${link}`,
+    const ok = await copyText(link);
+    if (!ok) {
+      toast.error("Could not copy the link — check browser clipboard permissions");
+      return;
+    }
+
+    // A long link still works when opened, but may not survive the trip.
+    // Say so plainly and offer the format that will, rather than reporting
+    // "100% self-contained!" and letting it break in the recipient's inbox.
+    if (fit === "long") {
+      toast.warning(`${label} copied, but it's long (${chars} characters)`, {
+        description: "Chat apps and email clients may cut or wrap it. Use a snapshot file if the recipient can't open it.",
+        action: { label: "Use file", onClick: () => shareAsFile(includeCompare) },
+      });
+      return;
+    }
+
+    toast.success(`${label} copied to clipboard`, {
+      description: `${chars} characters — self-contained, nothing sent to a server.`,
     });
   };
 
   // Export the session as a portable snapshot file. Importing it anywhere
   // restores the document, the comparison, and the notes — and lands the
   // recipient in the diff immediately.
-  const shareAsFile = (includeCompare: boolean) => {
-    downloadFile("download.jsonote", serializeSnapshotFile(buildSnapshot(includeCompare)), "application/json");
-    toast.success("Snapshot file downloaded", {
-      description: "Share the download.jsonote file — the recipient imports it to restore this exact session.",
-    });
+  // `silent` when the caller already explained why we fell back to a file —
+  // otherwise the too-large path stacks two toasts for one click.
+  const shareAsFile = (includeCompare: boolean, silent = false) => {
+    // Named after the document, not "download.jsonote". A recipient sent
+    // three sessions otherwise gets download.jsonote, download(1).jsonote,
+    // download(2).jsonote and cannot tell them apart.
+    const fileName = snapshotFileName(documentName);
+    downloadFile(fileName, serializeSnapshotFile(buildSnapshot(includeCompare)), "application/json");
+    if (!silent) {
+      // Say where it goes — the recipient otherwise holds a file with no
+      // idea what to do with it.
+      toast.success(`Saved ${fileName}`, {
+        description: "Send this file. The recipient drops it onto JSONDesk, or uses More → Import file or session.",
+      });
+    }
     setMoreOpen(false);
   };
 
@@ -1875,7 +1940,24 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
   const openNoteCount = notes.filter((note) => !note.resolved).length;
 
   return (
-    <main className="blueprint-ground min-h-screen text-[var(--ink)]">
+    <main
+      className="blueprint-ground relative min-h-screen text-[var(--ink)]"
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {/* Drop affordance. Only appears while a file is actually over the
+          window, so it costs nothing at rest. */}
+      {dragActive && (
+        <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-[var(--surface-page)]/80 backdrop-blur-sm">
+          <div className="panel flex flex-col items-center gap-3 px-10 py-8 shadow-lg">
+            <Upload size={22} className="text-[var(--brand)]" />
+            <p className="text-[15px] font-bold tracking-[-0.02em]">Drop to open</p>
+            <p className="eyebrow">.jsonote.json · .json · .csv · .txt</p>
+          </div>
+        </div>
+      )}
       <header className="flex h-[76px] items-center justify-between border-b border-[var(--rule)] bg-[var(--surface)] px-5 lg:px-8">
         {/* Brand: a square die-stamp, not a rounded app icon. The
             wordmark sets JSON in mono and Desk in Manrope — the tool and
@@ -1918,6 +2000,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               and the perpetually pulsing sparkle are gone — nav chrome
               shouldn't compete with the document for attention. */}
           <span className="mx-1.5 h-5 w-px bg-[var(--rule)]" />
+          <Link to="/compare" className="header-button" title="Compare two JSON documents side by side"><GitCompare size={14} /> Compare</Link>
           <button onClick={() => setTourOpen(true)} className="header-button" title="Interactive Product Walkthrough"><Sparkles size={14} /> Tour</button>
           <button onClick={() => setFaqOpen(true)} className="header-button" title="Frequently Asked Questions Knowledge Base">FAQ</button>
           <button onClick={() => setHelpOpen((current) => !current)} className={`header-button ${helpOpen ? "header-button-on" : ""}`} title="Help & Contact"><CircleHelp size={14} /> Help</button>
@@ -2049,7 +2132,18 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 </button>
                 {moreOpen && (
                   <div onClick={(event) => event.stopPropagation()} className="menu-surface absolute right-0 top-11 z-40 w-[19rem]">
-                    <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file<span className="menu-hint">.json / .csv / .txt</span></button>
+                    {/* The hint used to read ".json / .csv / .txt" and omit
+                        .jsonote — the one format a recipient of a shared
+                        session is holding. The input already accepted it;
+                        the label just never said so, which left "where do
+                        I put this file?" unanswered. */}
+                    <button onClick={() => { fileInputRef.current?.click(); setMoreOpen(false); }} className="menu-item"><Upload size={15} className="text-[var(--brand)]" /> Import file or session<span className="menu-hint">.jsonote.json / .csv</span></button>
+                    {/* Producing a session file had NO permanent entry point:
+                        it only happened automatically when a share link was
+                        too long, or via a button in a toast that vanished
+                        after four seconds. So the format existed but you
+                        couldn't deliberately ask for one. */}
+                    <button onClick={() => { shareAsFile(compareOpen); }} className="menu-item"><Share2 size={15} className="text-[var(--brand)]" /> Share as session file<span className="menu-hint">notes + diff, any size</span></button>
                     <button onClick={() => { exportCsv(); setMoreOpen(false); }} className="menu-item"><FileSpreadsheet size={15} className="text-[var(--brand)]" /> Convert to CSV<span className="menu-hint">download as .csv</span></button>
                     <button onClick={() => { downloadJson(); setMoreOpen(false); }} className="menu-item"><Download size={15} className="text-[var(--brand)]" /> Download .json{notes.length > 0 && <span className="menu-hint">with comments</span>}</button>
                     {notes.length > 0 && (
@@ -2563,10 +2657,16 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                                     <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
                                       <CornerDownRight size={12} className="shrink-0 text-slate-400" />
                                       <span>
+                                        {/* The separating space has to live
+                                            OUTSIDE the mention span: that span
+                                            is inline-flex, and flex containers
+                                            collapse trailing whitespace, so a
+                                            {" "} inside it renders as
+                                            "@DanConfirmed on the call". */}
                                         {reply.mention && (
-                                          <span className="inline-flex items-center gap-0.5 font-bold text-[var(--brand)]">
-                                            @{reply.mention}{" "}
-                                          </span>
+                                          <>
+                                            <span className="font-bold text-[var(--brand)]">@{reply.mention}</span>{" "}
+                                          </>
                                         )}
                                         {reply.text}
                                       </span>
@@ -2683,9 +2783,9 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   thing that's actually true and differentiating. */}
               <p className="eyebrow pt-1">No server · No upload · No account</p>
               {/* The three icon buttons that sat here duplicated the
-                  email / WhatsApp / phone links already spelled out in
-                  the Contact column. Contact details belong in one
-                  place, written out, where they can be read and copied. */}
+                  contact links already spelled out in the Contact
+                  column. Contact details belong in one place, written
+                  out, where they can be read and copied. */}
             </div>
 
             {/* Features Column */}
@@ -2733,13 +2833,12 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
               <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Contact</h5>
               <ul className="space-y-2 text-slate-500 dark:text-slate-400">
                 <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Mail size={13} className="shrink-0 opacity-60" /> Email</a></li>
-                <li><a href="https://wa.me/919398548188" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><MessageCircle size={13} className="shrink-0 opacity-60" /> WhatsApp</a></li>
                 <li><a href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Globe size={13} className="shrink-0 opacity-60" /> LinkedIn <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
                 <li><a href="https://github.com/chenna8464" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Code2 size={13} className="shrink-0 opacity-60" /> GitHub <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
                 <li><a href="https://medium.com/@chennadvp7799" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><FileText size={13} className="shrink-0 opacity-60" /> Medium <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
               </ul>
               <p className="pt-1 font-mono text-[10px] leading-relaxed text-slate-400">
-                chennadvp7799@gmail.com<br />+91 9398548188
+                chennadvp7799@gmail.com
               </p>
             </div>
           </div>
@@ -3099,7 +3198,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                 onClick={() => setHelpTab("contact")}
                 className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition border-b-2 ${helpTab === "contact" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}
               >
-                <Phone size={15} /> Get in Touch
+                <Mail size={15} /> Get in Touch
               </button>
               <button
                 onClick={() => setHelpTab("faq")}
@@ -3355,57 +3454,6 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                     </div>
                   </div>
 
-                  {/* Phone Call / Callback Option */}
-                  <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white">
-                        <Phone size={18} className="text-sky-500" /> Direct Call & Request Callback
-                      </div>
-                      <a href="tel:+919398548188" className="tool-button px-3.5 py-1.5 text-sky-600 dark:text-sky-400">
-                        <Phone size={13} /> Call +91 9398548188
-                      </a>
-                    </div>
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      Call us directly at <span className="font-mono font-bold text-slate-700 dark:text-slate-300">+91 9398548188</span> or leave your number below for a scheduled callback.
-                    </p>
-
-                    {callbackSubmitted ? (
-                      <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700 dark:border-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        ✓ Callback request received! We will call you at your preferred time window ({callbackTime}).
-                      </div>
-                    ) : (
-                      <form onSubmit={handleCallbackSubmit} className="mt-3 space-y-3">
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="block eyebrow">Your Phone Number *</label>
-                            <input
-                              type="tel"
-                              required
-                              value={callbackPhone}
-                              onChange={(e) => setCallbackPhone(e.target.value)}
-                              placeholder="+91 90000 00000"
-                              className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-1.5 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block eyebrow">Preferred Time Window</label>
-                            <select
-                              value={callbackTime}
-                              onChange={(e) => setCallbackTime(e.target.value)}
-                              className="mt-1 w-full rounded-lg border border-[var(--edge)] bg-white px-3 py-1.5 text-xs outline-none focus:border-[var(--brand-border)] dark:bg-[var(--surface)] dark:text-white"
-                            >
-                              <option value="Morning (9 AM - 12 PM)">Morning (9 AM - 12 PM)</option>
-                              <option value="Afternoon (12 PM - 5 PM)">Afternoon (12 PM - 5 PM)</option>
-                              <option value="Evening (5 PM - 8 PM)">Evening (5 PM - 8 PM)</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button type="submit" className="tool-button w-full justify-center text-sky-600 dark:text-sky-400">
-                          <Clock size={13} /> Request Callback
-                        </button>
-                      </form>
-                    )}
-                  </div>
                 </div>
               )}
 

@@ -266,21 +266,58 @@ export function decodeSnapshot(encoded: string): Snapshot | null {
   }
 }
 
-/** Generate a 6-character short local alias for quick link sharing within the browser. */
-export function generateShortAlias(snapshot: Snapshot): string {
-  const fullHash = encodeSnapshot(snapshot);
-  const alias = "s_" + Math.random().toString(36).substring(2, 8);
-  try {
-    localStorage.setItem(`jsonote_alias_${alias}`, fullHash);
-  } catch {
-    // Ignore quota errors
-  }
-  return alias;
-}
+/*
+ * REMOVED: generateShortAlias() / the "s_xxxxxx" alias format.
+ *
+ * It produced a 6-character link by stashing the payload in localStorage
+ * under `jsonote_alias_<id>`. localStorage is per-browser, so the link only
+ * ever resolved in the browser that created it — a recipient got
+ * decodeSnapshot("s_abc123"), which returns null, and therefore a blank
+ * editor with no explanation. The toast still called it an "ultra-short
+ * link". A share link that silently fails for everyone but the sender is
+ * worse than no short link at all.
+ *
+ * It was never wired to the UI, so no such links exist in the wild and
+ * nothing needs to keep reading them. A real short link needs the payload
+ * stored off-URL — see the note on buildSnapshotLink.
+ */
 
-/** Build a share link carrying the whole session, compressed into the URL hash. */
+/**
+ * Build a share link carrying the whole session, compressed into the URL hash.
+ *
+ * The payload rides in the fragment, so it is never transmitted to a server —
+ * that is what makes "we never see your JSON" literally true. The trade-off is
+ * that link length grows linearly with the document (~12–13% of raw JSON after
+ * deflate + base64url), so past a few thousand characters the link stops being
+ * reliably pasteable. Callers should check the result against
+ * `classifyShareLink` and offer the snapshot file instead. Genuinely short
+ * links would require storing the payload server-side; doing that without
+ * breaking the privacy promise means encrypting client-side and keeping the
+ * key in the fragment.
+ */
 export function buildSnapshotLink(snapshot: Snapshot): string {
   return `${window.location.origin}${window.location.pathname}#s=${encodeSnapshot(snapshot)}`;
+}
+
+/**
+ * Length past which a share link pastes reliably everywhere. The binding
+ * constraint is not the browser — a hash fragment is never sent to a server,
+ * and Chrome will happily hold megabytes — it is the places people paste
+ * links: chat message caps, mail clients that line-wrap and break the URL,
+ * and QR codes. 2,000 is the long-standing conservative ceiling.
+ */
+export const SHARE_LINK_PASTE_SAFE = 2_000;
+
+/** Past this, a link is a liability and the snapshot file is the right answer. */
+export const SHARE_LINK_MAX = 16_000;
+
+export type ShareLinkFit = "safe" | "long" | "too-long";
+
+/** Bucket a built link by how well it will survive being shared. */
+export function classifyShareLink(length: number): ShareLinkFit {
+  if (length <= SHARE_LINK_PASTE_SAFE) return "safe";
+  if (length <= SHARE_LINK_MAX) return "long";
+  return "too-long";
 }
 
 /**
@@ -290,16 +327,9 @@ export function buildSnapshotLink(snapshot: Snapshot): string {
 export function readSnapshotFromHash(hash: string): Snapshot | null {
   const compressed = hash.match(/#s=([A-Za-z0-9_%+=-]+)/);
   if (compressed) {
-    const payload = compressed[1];
-    if (payload.startsWith("s_")) {
-      try {
-        const cached = localStorage.getItem(`jsonote_alias_${payload}`);
-        if (cached) return decodeSnapshot(cached);
-      } catch {
-        // ignore
-      }
-    }
-    return decodeSnapshot(payload);
+    // The "s_" localStorage alias branch that used to live here is gone with
+    // generateShortAlias — see the note above buildSnapshotLink.
+    return decodeSnapshot(compressed[1]);
   }
 
   const legacy = hash.match(/#share=([A-Za-z0-9_-]+)/);
@@ -316,8 +346,42 @@ export function readSnapshotFromHash(hash: string): Snapshot | null {
 }
 
 /** A snapshot file is a JSON object tagged with our marker plus the snapshot fields. */
+/**
+ * Session files are written as `<name>.jsonote.json`, not `<name>.jsonote`.
+ *
+ * The bare `.jsonote` extension meant no operating system could open the
+ * file: no icon, no preview, nothing on double-click — and some mail and
+ * chat filters silently strip attachments with unrecognised extensions.
+ * The contents were always ordinary JSON, so the extension was costing
+ * openability for nothing. A trailing `.json` makes it open, preview and
+ * transmit everywhere, while `.jsonote` still marks it as a session.
+ *
+ * Detection never depended on the extension — parseSnapshotFile looks for
+ * the marker key — so this is purely about the file being usable outside
+ * the app.
+ */
+export const SNAPSHOT_FILE_EXT = ".jsonote.json";
+
+/** Build the download filename for a session, from the document name. */
+export function snapshotFileName(documentName: string): string {
+  const base = documentName.replace(/\.jsonote(\.json)?$/i, "").replace(/\.json$/i, "").trim();
+  const safe = (base || "session").replace(/[^\w.-]+/g, "-");
+  return `${safe}${SNAPSHOT_FILE_EXT}`;
+}
+
 export function serializeSnapshotFile(snapshot: Snapshot): string {
-  return JSON.stringify({ [SNAPSHOT_MARKER]: 1, ...snapshot }, null, 2);
+  return JSON.stringify(
+    {
+      // A first line for whoever opens this in a text editor rather than in
+      // JSONDesk. Ignored on import — coerceSnapshot only reads known keys.
+      _readme:
+        "This is a JSONDesk session file. Open jsondesk.com and choose More > Import file or session to restore the document, its notes and any comparison. The 'json' field below is the document itself.",
+      [SNAPSHOT_MARKER]: 1,
+      ...snapshot,
+    },
+    null,
+    2
+  );
 }
 
 /** Detect and parse a snapshot file. Returns null if the text isn't a snapshot. */

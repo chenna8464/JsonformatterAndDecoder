@@ -8,6 +8,10 @@ import {
   readSnapshotFromHash,
   serializeSnapshotFile,
   SNAPSHOT_MARKER,
+  classifyShareLink,
+  SHARE_LINK_PASTE_SAFE,
+  SHARE_LINK_MAX,
+  snapshotFileName,
   type Snapshot,
 } from "./snapshot";
 
@@ -81,7 +85,48 @@ describe("snapshot encode/decode", () => {
   });
 });
 
+describe("classifyShareLink", () => {
+  it("treats short links as safe to paste anywhere", () => {
+    expect(classifyShareLink(350)).toBe("safe");
+    expect(classifyShareLink(SHARE_LINK_PASTE_SAFE)).toBe("safe");
+  });
+
+  it("flags links past the paste-safe ceiling as long but usable", () => {
+    expect(classifyShareLink(SHARE_LINK_PASTE_SAFE + 1)).toBe("long");
+    expect(classifyShareLink(SHARE_LINK_MAX)).toBe("long");
+  });
+
+  it("rejects links past the maximum in favour of a snapshot file", () => {
+    expect(classifyShareLink(SHARE_LINK_MAX + 1)).toBe("too-long");
+    expect(classifyShareLink(150_000)).toBe("too-long");
+  });
+
+  it("puts a real 1000-record document in the long bucket", () => {
+    // ~15.5k characters measured — works when opened, but will not survive
+    // a paste into most chat apps, which is exactly what "long" means.
+    const items = Array.from({ length: 1000 }, (_, i) => ({
+      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+    }));
+    const encoded = encodeSnapshot({ v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) });
+    expect(classifyShareLink(encoded.length)).toBe("long");
+  });
+
+  it("puts a 100-record document in the safe bucket", () => {
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+    }));
+    const encoded = encodeSnapshot({ v: 1, name: "small.json", json: JSON.stringify({ items }, null, 2) });
+    expect(classifyShareLink(encoded.length)).toBe("safe");
+  });
+});
+
 describe("readSnapshotFromHash", () => {
+  it("no longer resolves the removed localStorage alias format", () => {
+    // "s_xxxxxx" links only ever worked in the browser that made them, so
+    // the format is gone. A stray one must fail cleanly, not throw.
+    expect(readSnapshotFromHash("#s=s_abc123")).toBeNull();
+  });
+
   it("reads the compressed #s= format", () => {
     // buildSnapshotLink needs window.location; build the hash directly here so
     // this stays a pure-node unit test.
@@ -111,6 +156,33 @@ describe("snapshot file", () => {
 
   it("does not treat a plain JSON document as a snapshot", () => {
     expect(parseSnapshotFile('{"just":"data"}')).toBeNull();
+  });
+
+  it("carries a human-readable _readme that import ignores", () => {
+    const file = serializeSnapshotFile(sample);
+    expect(JSON.parse(file)._readme).toContain("Import file or session");
+    // The extra key must not leak into the restored session.
+    expect(parseSnapshotFile(file)).toEqual(sample);
+    expect(Object.keys(parseSnapshotFile(file)!)).not.toContain("_readme");
+  });
+
+  describe("snapshotFileName", () => {
+    it("uses a .json tail so the OS can open it", () => {
+      expect(snapshotFileName("api.json")).toBe("api.jsonote.json");
+    });
+
+    it("does not double up when the name already carries the extension", () => {
+      expect(snapshotFileName("api.jsonote.json")).toBe("api.jsonote.json");
+    });
+
+    it("falls back to a sensible name when the document is untitled", () => {
+      expect(snapshotFileName("")).toBe("session.jsonote.json");
+      expect(snapshotFileName(".json")).toBe("session.jsonote.json");
+    });
+
+    it("strips characters that break filenames", () => {
+      expect(snapshotFileName("my report / v2.json")).toBe("my-report-v2.jsonote.json");
+    });
   });
 
   it("returns null for invalid JSON", () => {
