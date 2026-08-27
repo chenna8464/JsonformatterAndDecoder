@@ -33,3 +33,6 @@ package-lock.json
 # Firebase
 .firebase/
 
+
+# Local Netlify folder
+.netlify
