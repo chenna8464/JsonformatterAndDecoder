@@ -3,6 +3,7 @@
  * Useful to share types between client and server
  */
 
-export interface DemoResponse {
+export interface PingResponse {
   message: string;
 }
+
