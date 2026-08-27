@@ -119,6 +119,82 @@
 
   <body>
     <div id="root">
+
+      <!-- High-performance Initial CSS Preloader (Hydrated & Replaced by React) -->
+      <style>
+        .jsonfield-preloader {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background-color: #0d1117;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          color: #ffffff;
+        }
+        .jsonfield-logo-glow {
+          position: relative;
+          width: 64px;
+          height: 64px;
+          background: #172033;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 25px rgba(45, 212, 191, 0.25);
+          animation: jsonfield-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .jsonfield-loader-text {
+          margin-top: 16px;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          color: #f8fafc;
+        }
+        .jsonfield-loader-bar {
+          margin-top: 20px;
+          width: 140px;
+          height: 3px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 999px;
+          overflow: hidden;
+          position: relative;
+        }
+        .jsonfield-loader-bar-fill {
+          width: 40%;
+          height: 100%;
+          background: #2dd4bf;
+          border-radius: 999px;
+          position: absolute;
+          animation: jsonfield-slide 1.5s ease-in-out infinite;
+        }
+        @keyframes jsonfield-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.85; }
+        }
+        @keyframes jsonfield-slide {
+          0% { left: -40%; }
+          100% { left: 100%; }
+        }
+      </style>
+      <div class="jsonfield-preloader">
+        <div class="jsonfield-logo-glow">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 64 64" fill="none" stroke="#2dd4bf" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M26 16c-5 0-6 3-6 8s-4 8-8 8c4 0 8 3 8 8s1 8 6 8" />
+            <path d="M38 16c5 0 6 3 6 8s4 8 8 8c-4 0-8 3-8 8s-1 8-6 8" />
+          </svg>
+        </div>
+        <div class="jsonfield-loader-text">JSONField</div>
+        <div class="jsonfield-loader-bar">
+          <div class="jsonfield-loader-bar-fill"></div>
+        </div>
+      </div>
+
       <!-- Crawlable SEO fallback for Search Engine Bots -->
       <noscript>
         <h1>JSONField — Privacy-First JSON Workspace for Developers</h1>
@@ -135,6 +211,7 @@
         <p>Enable JavaScript to launch the full interactive JSONField workspace application.</p>
       </noscript>
     </div>
+
 
     <script type="module" src="/client/App.tsx"></script>
   </body>

@@ -472,9 +472,9 @@ const starterWorkspaces: Workspace[] = [
  * `webhook-payload.json` was also dropped: two seeded files implied saved
  * work the visitor never did.
  */
-const starterDocuments: DocumentRecord[] = [
-  { name: "northstar-api.json", content: initialJson, updated: "Just now" },
-];
+const starterDocuments: DocumentRecord[] = [];
+
+
 
 const starterNotes: Note[] = [];
 
