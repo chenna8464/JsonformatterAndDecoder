@@ -29,3 +29,7 @@ package-lock.json
 
 .config/
 !.env
+
+# Firebase
+.firebase/
+
