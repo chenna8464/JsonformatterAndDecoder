@@ -20,8 +20,9 @@
     <path d="M38 16c5 0 6 3 6 8s4 8 8 8c-4 0-8 3-8 8s-1 8-6 8" />
   </g>
 
-  <text x="210" y="220" font-size="52" font-weight="800" fill="#ffffff">JSONDesk</text>
-  <text x="212" y="256" font-size="22" font-weight="600" fill="#2dd4bf" letter-spacing="1">jsondesk.com</text>
+  <text x="210" y="220" font-size="52" font-weight="800" fill="#ffffff">JSONField</text>
+  <text x="212" y="256" font-size="22" font-weight="600" fill="#2dd4bf" letter-spacing="1">jsonfield-cc320.web.app</text>
+
 
   <text x="90" y="360" font-size="60" font-weight="800" fill="#ffffff">Privacy-First JSON</text>
   <text x="90" y="436" font-size="60" font-weight="800" fill="#ffffff">Developer <tspan fill="#2dd4bf">Workspace.</tspan></text>

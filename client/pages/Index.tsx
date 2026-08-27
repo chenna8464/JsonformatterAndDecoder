@@ -492,8 +492,8 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "what-is-jsonote",
     category: "general",
     categoryLabel: "Getting Started",
-    question: "What is JSONDesk and why is it different from basic JSON formatters?",
-    answer: "JSONDesk is an intelligent, context-aware JSON editor that pairs raw JSON editing with structural annotation notes. Unlike basic web formatters, JSONDesk tracks full revision history, attaches persistent notes directly to JSON line numbers/AST paths, offers interactive node-graph visualization, and repairs malformed JSON automatically without data loss.",
+    question: "What is JSONField and why is it different from basic JSON formatters?",
+    answer: "JSONField is an intelligent, context-aware JSON editor that pairs raw JSON editing with structural annotation notes. Unlike basic web formatters, JSONField tracks full revision history, attaches persistent notes directly to JSON line numbers/AST paths, offers interactive node-graph visualization, and repairs malformed JSON automatically without data loss.",
     tags: ["getting started", "features", "notes", "editor", "overview"]
   },
   {
@@ -508,16 +508,16 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "collaboration-workspaces",
     category: "general",
     categoryLabel: "Getting Started",
-    question: "How do Personal and Team workspaces work in JSONDesk?",
-    answer: "JSONDesk supports both Personal and Team workspaces. You can switch or create workspaces from the top-left dropdown menu, organizing related JSON documents and notes together. You can also export full workspace JSON archives or generate encrypted snapshot URLs to share annotated JSON states.",
+    question: "How do Personal and Team workspaces work in JSONField?",
+    answer: "JSONField supports both Personal and Team workspaces. You can switch or create workspaces from the top-left dropdown menu, organizing related JSON documents and notes together. You can also export full workspace JSON archives or generate encrypted snapshot URLs to share annotated JSON states.",
     tags: ["workspaces", "team", "organization", "projects"]
   },
   {
     id: "auto-repair",
     category: "repair",
     categoryLabel: "JSON Repair & Syntax",
-    question: "How does JSONDesk automatically repair broken JSON?",
-    answer: "When you paste invalid JSON (such as Python dictionaries with single quotes 'key': 'val', missing quotes around object keys, trailing commas [1, 2, 3,], unescaped newlines, or C-style // comments), JSONDesk's tolerant parser automatically repairs the syntax into strict RFC-8259 compliant JSON when you click Format or press Cmd/Ctrl + Shift + F.",
+    question: "How does JSONField automatically repair broken JSON?",
+    answer: "When you paste invalid JSON (such as Python dictionaries with single quotes 'key': 'val', missing quotes around object keys, trailing commas [1, 2, 3,], unescaped newlines, or C-style // comments), JSONField's tolerant parser automatically repairs the syntax into strict RFC-8259 compliant JSON when you click Format or press Cmd/Ctrl + Shift + F.",
     tags: ["repair", "format", "single quotes", "trailing commas", "comments", "syntax"]
   },
   {
@@ -533,15 +533,15 @@ const FAQ_ITEMS: FaqItem[] = [
     category: "repair",
     categoryLabel: "JSON Repair & Syntax",
     question: "How does line error diagnostic highlighting work?",
-    answer: "JSONDesk displays real-time diagnostics pinpointing the exact line number, column offset, and unexpected token causing the syntax error, highlighting the error location directly inside the CodeMirror editor.",
+    answer: "JSONField displays real-time diagnostics pinpointing the exact line number, column offset, and unexpected token causing the syntax error, highlighting the error location directly inside the CodeMirror editor.",
     tags: ["diagnostics", "errors", "syntax error", "linting"]
   },
   {
     id: "interactive-views",
     category: "views",
     categoryLabel: "Views & Querying",
-    question: "What are the 5 interactive views available in JSONDesk?",
-    answer: "JSONDesk features 5 specialized views: Editor View (CodeMirror 6 editor with line notes), Tree View (interactive expandable AST node tree with level depth selectors), Query View (expressive path filter evaluator), Table View (spreadsheet grid representation of array elements with column sorting), and Graph View (interactive node-link graph diagram with SVG/PNG export).",
+    question: "What are the 5 interactive views available in JSONField?",
+    answer: "JSONField features 5 specialized views: Editor View (CodeMirror 6 editor with line notes), Tree View (interactive expandable AST node tree with level depth selectors), Query View (expressive path filter evaluator), Table View (spreadsheet grid representation of array elements with column sorting), and Graph View (interactive node-link graph diagram with SVG/PNG export).",
     tags: ["views", "tree view", "table view", "graph view", "query view", "editor"]
   },
   {
@@ -549,7 +549,7 @@ const FAQ_ITEMS: FaqItem[] = [
     category: "views",
     categoryLabel: "Views & Querying",
     question: "How do I filter JSON using JSONPath selectors in Query View?",
-    answer: "In Query View, you can type selectors like endpoints[*].name, items[?auth=true].path, or settings.*. JSONDesk evaluates the path in real-time, displays all matching sub-trees, and provides 1-click copy controls for filtered results.",
+    answer: "In Query View, you can type selectors like endpoints[*].name, items[?auth=true].path, or settings.*. JSONField evaluates the path in real-time, displays all matching sub-trees, and provides 1-click copy controls for filtered results.",
     tags: ["query", "jsonpath", "filtering", "search", "paths"]
   },
   {
@@ -573,7 +573,7 @@ const FAQ_ITEMS: FaqItem[] = [
     category: "convert",
     categoryLabel: "Conversion & Codegen",
     question: "How do I generate TypeScript, Go, Python, or Rust models from JSON?",
-    answer: "Click 'Generate Code' in the header tool menu. JSONDesk instantly infers the schema from your active JSON payload and generates strongly-typed model definitions for TypeScript (interfaces/types), Go (structs with json tags), Python (Pydantic models / TypedDict), Rust (Serde structs), Java (POJOs), or C# (Classes).",
+    answer: "Click 'Generate Code' in the header tool menu. JSONField instantly infers the schema from your active JSON payload and generates strongly-typed model definitions for TypeScript (interfaces/types), Go (structs with json tags), Python (Pydantic models / TypedDict), Rust (Serde structs), Java (POJOs), or C# (Classes).",
     tags: ["codegen", "typescript", "golang", "python", "rust", "java", "csharp"]
   },
   {
@@ -581,7 +581,7 @@ const FAQ_ITEMS: FaqItem[] = [
     category: "history",
     categoryLabel: "History & Snapshots",
     question: "How does local on-device version history work?",
-    answer: "JSONDesk automatically records a revision snapshot whenever you format, repair, or make significant edits to your document. Click 'History' in the subheader to view past timestamps, diff changes, restore previous versions, or label revision milestones.",
+    answer: "JSONField automatically records a revision snapshot whenever you format, repair, or make significant edits to your document. Click 'History' in the subheader to view past timestamps, diff changes, restore previous versions, or label revision milestones.",
     tags: ["history", "revisions", "version control", "diff", "undo"]
   },
   {
@@ -589,7 +589,7 @@ const FAQ_ITEMS: FaqItem[] = [
     category: "history",
     categoryLabel: "History & Snapshots",
     question: "How does 100% private URL hash snapshot sharing work?",
-    answer: "Yes! When you click 'Share Snapshot', JSONDesk compresses your JSON payload into a URL hash fragment (#snapshot=...) using DEFLATE compression. Because the data is stored in the URL hash, server-side HTTP logs never receive or store your confidential JSON payload.",
+    answer: "Yes! When you click 'Share Snapshot', JSONField compresses your JSON payload into a URL hash fragment (#snapshot=...) using DEFLATE compression. Because the data is stored in the URL hash, server-side HTTP logs never receive or store your confidential JSON payload.",
     tags: ["snapshots", "sharing", "privacy", "url", "compression"]
   },
   {
@@ -604,16 +604,16 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "large-files",
     category: "privacy",
     categoryLabel: "Privacy & Security",
-    question: "What is the maximum JSON file size JSONDesk can handle?",
-    answer: "JSONDesk is built with virtualized line rendering and efficient AST memory management. It comfortably handles large JSON files up to 50MB+ in size without crashing or freezing the browser UI.",
+    question: "What is the maximum JSON file size JSONField can handle?",
+    answer: "JSONField is built with virtualized line rendering and efficient AST memory management. It comfortably handles large JSON files up to 50MB+ in size without crashing or freezing the browser UI.",
     tags: ["large files", "performance", "memory", "50MB"]
   },
   {
     id: "offline-support",
     category: "privacy",
     categoryLabel: "Privacy & Security",
-    question: "Does JSONDesk work offline without an internet connection?",
-    answer: "Yes! JSONDesk is a fully self-contained Single Page Application (SPA). Once loaded, it works 100% offline without requiring an active internet connection.",
+    question: "Does JSONField work offline without an internet connection?",
+    answer: "Yes! JSONField is a fully self-contained Single Page Application (SPA). Once loaded, it works 100% offline without requiring an active internet connection.",
     tags: ["offline", "pwa", "no internet", "browser"]
   }
 ];
@@ -747,7 +747,7 @@ export default function Index() {
 
   // Automatic Spotify / Google Meet style Overlay detection:
   // When developer switches away to another tab or application (VS Code, Terminal, Postman),
-  // automatically show the floating mini-editor overlay! When returning to JSONDesk tab, auto-dock/close it.
+  // automatically show the floating mini-editor overlay! When returning to JSONField tab, auto-dock/close it.
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -782,7 +782,7 @@ export default function Index() {
           height: 540,
         });
 
-        pipWin.document.title = "JSONDesk — Floating Mini-Editor";
+        pipWin.document.title = "JSONField — Floating Mini-Editor";
         pipWin.document.body.style.margin = "0";
         pipWin.document.body.style.padding = "10px";
         pipWin.document.body.style.background = "#0f172a";
@@ -793,7 +793,7 @@ export default function Index() {
           <div style="display:flex; flex-direction:column; height:calc(100vh - 20px); gap:8px; font-family:system-ui,-apple-system,sans-serif;">
             <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid #334155;">
               <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-weight:bold; font-size:13px; color:#38bdf8;">📌 JSONDesk Mini</span>
+                <span style="font-weight:bold; font-size:13px; color:#38bdf8;">📌 JSONField Mini</span>
                 <span id="pip-status" style="font-size:10px; padding:2px 6px; border-radius:99px; background:#065f46; color:#34d399; font-weight:bold;">Valid</span>
               </div>
               <div style="display:flex; gap:6px;">
@@ -803,7 +803,7 @@ export default function Index() {
             </div>
             <textarea id="pip-text" style="flex:1; width:100%; background:#020617; color:#f8fafc; border:1px solid #334155; border-radius:8px; padding:10px; font-family:monospace; font-size:12px; resize:none; outline:none; box-sizing:border-box; line-height:1.5;"></textarea>
             <div style="font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">
-              <span>⚡ Live two-way sync with main JSONDesk</span>
+              <span>⚡ Live two-way sync with main JSONField</span>
               <span id="pip-lines">0 lines</span>
             </div>
           </div>
@@ -896,7 +896,7 @@ export default function Index() {
     const snippet = supportIncludeJson ? json.slice(0, 1200) : undefined;
     const refId = `Q-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const mailSubject = encodeURIComponent(`[JSONDesk Query #${refId}] ${supportSubject || supportCategory}`);
+    const mailSubject = encodeURIComponent(`[JSONField Query #${refId}] ${supportSubject || supportCategory}`);
     const mailBodyText = `Name: ${supportName}
 Email: ${supportEmail}
 Category: ${supportCategory}
@@ -1826,7 +1826,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
       // Say where it goes — the recipient otherwise holds a file with no
       // idea what to do with it.
       toast.success(`Saved ${fileName}`, {
-        description: "Send this file. The recipient drops it onto JSONDesk, or uses More → Import file or session.",
+        description: "Send this file. The recipient drops it onto JSONField, or uses More → Import file or session.",
       });
     }
     setMoreOpen(false);
@@ -2808,7 +2808,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             <div className="space-y-3 text-xs">
               <h5 className="eyebrow !text-slate-800 dark:!text-slate-200">Contact</h5>
               <ul className="space-y-2 text-slate-500 dark:text-slate-400">
-                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Mail size={13} className="shrink-0 opacity-60" /> Email</a></li>
+                <li><a href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONField%20Inquiry" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Mail size={13} className="shrink-0 opacity-60" /> Email</a></li>
                 <li><a href="https://linkedin.com/in/chenna-kesava-reddy-devapatla-041236216" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Globe size={13} className="shrink-0 opacity-60" /> LinkedIn <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
                 <li><a href="https://github.com/chenna8464" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><Code2 size={13} className="shrink-0 opacity-60" /> GitHub <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
                 <li><a href="https://medium.com/@chennadvp7799" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-[var(--brand)]"><FileText size={13} className="shrink-0 opacity-60" /> Medium <ExternalLink size={10} className="shrink-0 opacity-40" /></a></li>
@@ -2832,14 +2832,14 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
             className="pointer-events-none mt-12 select-none text-center font-extrabold leading-[0.85] tracking-[-0.055em] text-[var(--ink)] opacity-[0.06] dark:opacity-[0.11]"
             style={{ fontSize: "clamp(56px, 13vw, 168px)" }}
           >
-            JSONDesk
+            JSONField
           </div>
 
           {/* Bottom bar. Carries the author attribution that was
               previously stranded in the second footer's copyright line. */}
           <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-[var(--rule)] pt-6 text-[11px] text-slate-400 sm:flex-row sm:items-center">
             <p>
-              © {new Date().getFullYear()} JSONDesk by Chenna Kesava Reddy Devapatla.
+              © {new Date().getFullYear()} JSONField by Chenna Kesava Reddy Devapatla.
               <span className="ml-1.5 text-slate-400/80">All data stays local — zero server uploads.</span>
             </p>
             <button onClick={() => { setHelpTab("contact"); setHelpOpen(true); }} className="shrink-0 hover:text-[var(--brand)]">Direct Support</button>
@@ -2858,7 +2858,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                   <Sparkles size={22} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">JSONDesk Features Walkthrough</h3>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">JSONField Features Walkthrough</h3>
                   <p className="text-xs text-slate-400">Explore core features designed for high-productivity JSON editing and review.</p>
                 </div>
               </div>
@@ -3213,7 +3213,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                       <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${encodeURIComponent(`[JSONDesk Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${encodeURIComponent(`[JSONField Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-4 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
@@ -3221,7 +3221,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                         <Send size={14} /> Open Gmail Web
                       </a>
                       <a
-                        href={`mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(`[JSONDesk Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
+                        href={`mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(`[JSONField Query #${queryRefId}] ${supportSubject || supportCategory}`)}&body=${encodeURIComponent(`Name: ${supportName}\nEmail: ${supportEmail}\nRef ID: #${queryRefId}\n\n${supportMessage}`)}`}
                         className="tool-button"
                       >
                         Open Mail App
@@ -3347,7 +3347,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                         <a
-                          href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONDesk%20Inquiry"
+                          href="https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=JSONField%20Inquiry"
                           target="_blank"
                           rel="noreferrer"
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white transition hover:bg-[var(--brand-hover)]"
@@ -3355,7 +3355,7 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                           <Send size={13} /> Open Gmail Web
                         </a>
                         <a
-                          href="mailto:chennadvp7799@gmail.com?subject=JSONDesk%20Inquiry"
+                          href="mailto:chennadvp7799@gmail.com?subject=JSONField%20Inquiry"
                           className="flex items-center justify-center gap-1 rounded-lg border border-[var(--edge)] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:bg-[var(--surface)] dark:text-slate-200"
                         >
                           <Mail size={13} /> Mail App
@@ -3435,15 +3435,15 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
 
               {helpTab === "faq" && (
                 <div className="space-y-4">
-                  {/* Why JSONDesk & Differentiation */}
+                  {/* Why JSONField & Differentiation */}
                   <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-soft)] p-4">
                     <h5 className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white">
-                      <Sparkles size={16} className="text-[var(--brand)]" /> Why JSONDesk? What Makes It Different?
+                      <Sparkles size={16} className="text-[var(--brand)]" /> Why JSONField? What Makes It Different?
                     </h5>
                     <div className="mt-3 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">🔒 100% Client-Side Privacy</p>
-                        <p className="mt-0.5 text-slate-500">Unlike typical formatters that transmit your confidential JSON payloads to remote servers, JSONDesk executes all formatting, auto-repair, schema validation, and graph generation 100% locally in your browser.</p>
+                        <p className="mt-0.5 text-slate-500">Unlike typical formatters that transmit your confidential JSON payloads to remote servers, JSONField executes all formatting, auto-repair, schema validation, and graph generation 100% locally in your browser.</p>
                       </div>
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">💬 Contextual Line Notes & @Mentions</p>

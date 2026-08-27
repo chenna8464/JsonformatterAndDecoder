@@ -24,7 +24,7 @@ interface State {
  *     open a pre-filled draft *if the user clicks them*. Telling someone
  *     their crash was reported when it wasn't is the kind of detail that
  *     costs trust when they find out.
- *  2. It invented product surface that doesn't exist — "JSONDesk Shield
+ *  2. It invented product surface that doesn't exist — "JSONField Shield
  *     v2.4", a security-product name and a version number for a feature
  *     that is one React class component.
  *  3. It was louder than the news it delivered: a rainbow gradient bar, an
@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error in JSONDesk React tree:", error, errorInfo);
+    console.error("Uncaught error in JSONField React tree:", error, errorInfo);
     this.setState({ errorInfo });
   }
 
@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private buildReport = () =>
     [
-      "[JSONDesk error report]",
+      "[JSONField error report]",
       `Message: ${this.state.error?.message ?? "unknown"}`,
       `Time:    ${new Date().toISOString()}`,
       `Agent:   ${navigator.userAgent}`,
@@ -91,7 +91,7 @@ export class ErrorBoundary extends Component<Props, State> {
     const message = this.state.error?.message || "An unexpected runtime error occurred.";
     const stack = this.state.error?.stack || "No stack trace available.";
     const mailto = `mailto:chennadvp7799@gmail.com?subject=${encodeURIComponent(
-      "[JSONDesk] Error report"
+      "[JSONField] Error report"
     )}&body=${encodeURIComponent(this.buildReport())}`;
 
     return (
@@ -105,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle size={12} strokeWidth={2.5} /> Unhandled error
             </p>
             <h1 className="mt-3 text-[26px] font-extrabold leading-tight tracking-[-0.045em]">
-              JSONDesk stopped unexpectedly
+              JSONField stopped unexpectedly
             </h1>
             <p className="mt-3 max-w-md text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">
               Your documents and notes are held in this browser and were not
@@ -167,7 +167,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             {/* Honest footer. Replaces "Alert sent to: …", which was false. */}
             <p className="mt-6 border-t border-[var(--rule)] pt-4 text-[11px] leading-relaxed text-slate-400">
-              Nothing was sent anywhere. JSONDesk has no crash reporting — if
+              Nothing was sent anywhere. JSONField has no crash reporting — if
               you want this looked at, use <span className="font-medium">Copy report</span> or{" "}
               <span className="font-medium">Email report</span> above.
             </p>

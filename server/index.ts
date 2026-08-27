@@ -31,11 +31,14 @@ export function createServer() {
    * credentials.
    */
   const allowedOrigins = [
-    "https://jsondesk.com",
-    "https://www.jsondesk.com",
+    "https://jsonfield.com",
+    "https://www.jsonfield.com",
+    "https://jsonfield.netlify.app",
+    "https://jsondesk-cc320.web.app",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
   ];
+
   app.use(
     cors({
       origin: (origin, callback) => {

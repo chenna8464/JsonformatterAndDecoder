@@ -1,7 +1,8 @@
-# JSONDesk — https://jsondesk.com
+# JSONField — https://jsonfield-cc320.web.app
 # The app is a single public page; all crawlers welcome.
 
 User-agent: *
 Allow: /
 
-Sitemap: https://jsondesk.com/sitemap.xml
+Sitemap: https://jsonfield-cc320.web.app/sitemap.xml
+

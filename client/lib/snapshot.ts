@@ -373,9 +373,9 @@ export function serializeSnapshotFile(snapshot: Snapshot): string {
   return JSON.stringify(
     {
       // A first line for whoever opens this in a text editor rather than in
-      // JSONDesk. Ignored on import — coerceSnapshot only reads known keys.
+      // JSONField. Ignored on import — coerceSnapshot only reads known keys.
       _readme:
-        "This is a JSONDesk session file. Open jsondesk.com and choose More > Import file or session to restore the document, its notes and any comparison. The 'json' field below is the document itself.",
+        "This is a JSONField session file. Open jsonfield.com and choose More > Import file or session to restore the document, its notes and any comparison. The 'json' field below is the document itself.",
       [SNAPSHOT_MARKER]: 1,
       ...snapshot,
     },

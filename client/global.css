@@ -34,7 +34,7 @@
     --r-edge: 2px;
     --r-press: 3px;
 
-    /* JSONDesk app tokens — light */
+    /* JSONField app tokens — light */
     --surface-page: #f6f7fb;
     --surface: #ffffff;
     --surface-soft: #fafbfc;
@@ -97,7 +97,7 @@
     --input: 222 20% 20%;
     --ring: 168 60% 42%;
 
-    /* JSONDesk app tokens — dark */
+    /* JSONField app tokens — dark */
     --surface-page: #0d1117;
     --surface: #161b22;
     --surface-soft: #1c2129;
@@ -182,7 +182,7 @@
 
 @layer components {
   /* ══════════════════════════════════════════════════════════════════
-     JSONDesk — "Engineered Instrument"
+     JSONField — "Engineered Instrument"
 
      Principles, in priority order:
      1. SEAMS, NOT SHADOWS. Depth comes from tone-stepping and 1px
