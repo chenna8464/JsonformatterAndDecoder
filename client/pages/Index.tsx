@@ -61,32 +61,8 @@ import {
   Layers,
 } from "lucide-react";
 
-const initialJson = `{
-  "project": {
-    "name": "Northstar API",
-    "version": "2.4.0",
-    "environment": "production"
-  },
-  "endpoints": [
-    {
-      "name": "Get user profile",
-      "method": "GET",
-      "path": "/api/v1/users/:id",
-      "auth": true
-    },
-    {
-      "name": "Update user profile",
-      "method": "PATCH",
-      "path": "/api/v1/users/:id",
-      "auth": true
-    }
-  ],
-  "settings": {
-    "rateLimit": 100,
-    "logging": true,
-    "features": ["analytics", "webhooks"]
-  }
-}`;
+const initialJson = "{\n  \n}";
+
 
 type Reply ={ id: number; text: string; mention: string; at: number };
 type Note = { id: number; title: string; text: string; path: string; line: number; mention: string; color: string; resolved?: boolean; replies?: Reply[] };
