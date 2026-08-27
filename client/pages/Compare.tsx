@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -44,6 +44,11 @@ export default function Compare() {
   const [right, setRight] = useState("");
   const [mode, setMode] = useState<Mode>("text");
   const [arrayOrder, setArrayOrder] = useState<ArrayOrder>("strict");
+
+  useEffect(() => {
+    document.title = "JSONField — Side-by-Side JSON Compare & Semantic Diff Tool";
+  }, []);
+
 
   const result = useMemo(
     () => (left.trim() && right.trim() ? compareJson(left, right, { arrayOrder }) : null),

@@ -7,11 +7,13 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
+    document.title = "404 Page Not Found — JSONField";
     console.error(
       "404 Error: User attempted to access non-existent route:",
       location.pathname,
     );
   }, [location.pathname]);
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4">
