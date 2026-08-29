@@ -11,7 +11,12 @@ describe("jsonToFormat", () => {
       expect(yaml.value).toContain("name: Ada");
       const back = formatToJson(yaml.value, "yaml");
       expect(back.ok).toBe(true);
-      if (back.ok) expect(JSON.parse(back.value)).toEqual({ name: "Ada", age: 36, tags: ["x", "y"] });
+      if (back.ok)
+        expect(JSON.parse(back.value)).toEqual({
+          name: "Ada",
+          age: 36,
+          tags: ["x", "y"],
+        });
     }
   });
 
@@ -21,7 +26,12 @@ describe("jsonToFormat", () => {
     if (toml.ok) {
       const back = formatToJson(toml.value, "toml");
       expect(back.ok).toBe(true);
-      if (back.ok) expect(JSON.parse(back.value)).toEqual({ name: "Ada", age: 36, tags: ["x", "y"] });
+      if (back.ok)
+        expect(JSON.parse(back.value)).toEqual({
+          name: "Ada",
+          age: 36,
+          tags: ["x", "y"],
+        });
     }
   });
 
@@ -47,7 +57,8 @@ describe("formatToJson", () => {
   it("parses YAML into JSON", () => {
     const result = formatToJson("name: Ada\nage: 36\n", "yaml");
     expect(result.ok).toBe(true);
-    if (result.ok) expect(JSON.parse(result.value)).toEqual({ name: "Ada", age: 36 });
+    if (result.ok)
+      expect(JSON.parse(result.value)).toEqual({ name: "Ada", age: 36 });
   });
 
   it("reports a clear error for malformed YAML", () => {

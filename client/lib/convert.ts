@@ -3,12 +3,20 @@ import type { SnapshotNote } from "./snapshot";
 type Primitive = string | number | boolean | null;
 
 /** Flatten one record into dot-path columns (nested objects/arrays supported). */
-const flattenRecord = (value: unknown, path = ""): Record<string, Primitive> => {
+const flattenRecord = (
+  value: unknown,
+  path = "",
+): Record<string, Primitive> => {
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return path ? { [path]: Array.isArray(value) ? "[]" : "{}" } : {};
+    if (entries.length === 0)
+      return path ? { [path]: Array.isArray(value) ? "[]" : "{}" } : {};
     return entries.reduce(
-      (result, [key, child]) => Object.assign(result, flattenRecord(child, path ? `${path}.${key}` : key)),
+      (result, [key, child]) =>
+        Object.assign(
+          result,
+          flattenRecord(child, path ? `${path}.${key}` : key),
+        ),
       {} as Record<string, Primitive>,
     );
   }
@@ -29,16 +37,23 @@ export function jsonToCsv(value: unknown): string {
   const rows = Array.isArray(value) ? value : [value];
   if (rows.length === 0) return "";
   const flattened = rows.map((row) => flattenRecord(row));
-  const headers = Array.from(new Set(flattened.flatMap((row) => Object.keys(row))));
+  const headers = Array.from(
+    new Set(flattened.flatMap((row) => Object.keys(row))),
+  );
   const lines = [headers.map((h) => escapeCsvCell(h)).join(",")];
   for (const row of flattened) {
-    lines.push(headers.map((header) => escapeCsvCell(row[header] ?? null)).join(","));
+    lines.push(
+      headers.map((header) => escapeCsvCell(row[header] ?? null)).join(","),
+    );
   }
   return lines.join("\n");
 }
 
 /** Extract # comment metadata lines and data lines from CSV text. */
-export function extractCsvNotesAndData(text: string): { dataText: string; notes: SnapshotNote[] | null } {
+export function extractCsvNotesAndData(text: string): {
+  dataText: string;
+  notes: SnapshotNote[] | null;
+} {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const commentLines = lines.filter((l) => l.trim().startsWith("#"));
   const dataLines = lines.filter((l) => !l.trim().startsWith("#"));
@@ -129,7 +144,11 @@ const coerceCell = (text: string): Primitive => {
 };
 
 /** Rebuild nested structure from dot-path column names. */
-const setDeep = (target: Record<string, unknown>, path: string, value: Primitive): void => {
+const setDeep = (
+  target: Record<string, unknown>,
+  path: string,
+  value: Primitive,
+): void => {
   const segments = path.split(".");
   let node: Record<string, unknown> = target;
   for (let i = 0; i < segments.length - 1; i++) {
@@ -204,20 +223,28 @@ export function queryJson(root: unknown, query: string): QueryMatch[] {
     const match = segment.match(/^([^[\]]*)((\[[^\]]*\])*)$/);
     if (!match) return [];
     const key = match[1];
-    const brackets = Array.from(segment.matchAll(/\[([^\]]*)\]/g)).map((m) => m[1]);
+    const brackets = Array.from(segment.matchAll(/\[([^\]]*)\]/g)).map(
+      (m) => m[1],
+    );
 
     if (key) {
       matches = matches.flatMap((entry) => {
         const value = entry.value;
         if (value === null || typeof value !== "object") return [];
         if (key === "*") {
-          return Object.entries(value as Record<string, unknown>).map(([childKey, child]) => ({
-            path: Array.isArray(value) ? `${entry.path}[${childKey}]` : `${entry.path}.${childKey}`,
-            value: child,
-          }));
+          return Object.entries(value as Record<string, unknown>).map(
+            ([childKey, child]) => ({
+              path: Array.isArray(value)
+                ? `${entry.path}[${childKey}]`
+                : `${entry.path}.${childKey}`,
+              value: child,
+            }),
+          );
         }
         const record = value as Record<string, unknown>;
-        return key in record ? [{ path: `${entry.path}.${key}`, value: record[key] }] : [];
+        return key in record
+          ? [{ path: `${entry.path}.${key}`, value: record[key] }]
+          : [];
       });
     }
 
@@ -226,23 +253,39 @@ export function queryJson(root: unknown, query: string): QueryMatch[] {
         const value = entry.value;
         if (!Array.isArray(value)) return [];
         if (bracket === "*" || bracket === "") {
-          return value.map((child, index) => ({ path: `${entry.path}[${index}]`, value: child }));
+          return value.map((child, index) => ({
+            path: `${entry.path}[${index}]`,
+            value: child,
+          }));
         }
         const filter = bracket.match(/^\?\s*([^=!<>]+?)\s*(=|!=|>|<)\s*(.+)$/);
         if (filter) {
           const [, field, op, rawTarget] = filter;
           const target = rawTarget.trim().replace(/^["']|["']$/g, "");
           return value.flatMap((child, index) => {
-            const childValue = child !== null && typeof child === "object" ? (child as Record<string, unknown>)[field.trim()] : undefined;
-            const text = childValue === undefined ? undefined : String(childValue);
+            const childValue =
+              child !== null && typeof child === "object"
+                ? (child as Record<string, unknown>)[field.trim()]
+                : undefined;
+            const text =
+              childValue === undefined ? undefined : String(childValue);
             const numeric = Number(childValue);
             const targetNumeric = Number(target);
             const passes =
-              op === "=" ? text === target :
-              op === "!=" ? text !== undefined && text !== target :
-              op === ">" ? !Number.isNaN(numeric) && !Number.isNaN(targetNumeric) && numeric > targetNumeric :
-              !Number.isNaN(numeric) && !Number.isNaN(targetNumeric) && numeric < targetNumeric;
-            return passes ? [{ path: `${entry.path}[${index}]`, value: child }] : [];
+              op === "="
+                ? text === target
+                : op === "!="
+                  ? text !== undefined && text !== target
+                  : op === ">"
+                    ? !Number.isNaN(numeric) &&
+                      !Number.isNaN(targetNumeric) &&
+                      numeric > targetNumeric
+                    : !Number.isNaN(numeric) &&
+                      !Number.isNaN(targetNumeric) &&
+                      numeric < targetNumeric;
+            return passes
+              ? [{ path: `${entry.path}[${index}]`, value: child }]
+              : [];
           });
         }
         const index = Number(bracket);
@@ -257,7 +300,11 @@ export function queryJson(root: unknown, query: string): QueryMatch[] {
 }
 
 /** Immutably set a value at a path expressed as segments (object keys / array indexes). */
-export function setAtPath(root: unknown, segments: (string | number)[], value: unknown): unknown {
+export function setAtPath(
+  root: unknown,
+  segments: (string | number)[],
+  value: unknown,
+): unknown {
   if (segments.length === 0) return value;
   const [head, ...rest] = segments;
   if (Array.isArray(root)) {
@@ -266,7 +313,14 @@ export function setAtPath(root: unknown, segments: (string | number)[], value: u
     return copy;
   }
   if (root !== null && typeof root === "object") {
-    return { ...(root as Record<string, unknown>), [head]: setAtPath((root as Record<string, unknown>)[String(head)], rest, value) };
+    return {
+      ...(root as Record<string, unknown>),
+      [head]: setAtPath(
+        (root as Record<string, unknown>)[String(head)],
+        rest,
+        value,
+      ),
+    };
   }
   return root;
 }

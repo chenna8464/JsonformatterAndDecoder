@@ -8,12 +8,14 @@ const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB out — huge for any r
 
 /** Streaming gunzip that aborts as soon as output exceeds MAX_DECOMPRESSED_BYTES. */
 const boundedGunzip = (data: Uint8Array): Uint8Array => {
-  if (data.length > MAX_COMPRESSED_BYTES) throw new Error("Compressed payload too large");
+  if (data.length > MAX_COMPRESSED_BYTES)
+    throw new Error("Compressed payload too large");
   const chunks: Uint8Array[] = [];
   let total = 0;
   const gunzip = new Gunzip((chunk) => {
     total += chunk.length;
-    if (total > MAX_DECOMPRESSED_BYTES) throw new Error("Decompressed payload too large");
+    if (total > MAX_DECOMPRESSED_BYTES)
+      throw new Error("Decompressed payload too large");
     chunks.push(chunk);
   });
   gunzip.push(data, true); // callback runs synchronously; an overflow throw unwinds here
@@ -32,7 +34,12 @@ const boundedGunzip = (data: Uint8Array): Uint8Array => {
  * notes, and which view was active. The recipient restores the exact session —
  * including the live diff — from either a compressed link or a snapshot file.
  */
-export type SnapshotReply = { id: number; text: string; mention: string; at: number };
+export type SnapshotReply = {
+  id: number;
+  text: string;
+  mention: string;
+  at: number;
+};
 
 export type SnapshotNote = {
   id: number;
@@ -71,7 +78,10 @@ const bytesToBinary = (bytes: Uint8Array): string => {
 };
 
 const base64UrlEncode = (bytes: Uint8Array): string =>
-  btoa(bytesToBinary(bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  btoa(bytesToBinary(bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 const base64UrlDecode = (encoded: string): Uint8Array => {
   let cleaned = encoded;
@@ -88,9 +98,14 @@ const base64UrlDecode = (encoded: string): Uint8Array => {
 export const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
   if (!Array.isArray(value)) return undefined;
   return value
-    .filter((n): n is Record<string, unknown> => n !== null && typeof n === "object")
+    .filter(
+      (n): n is Record<string, unknown> => n !== null && typeof n === "object",
+    )
     .map((n) => ({
-      id: typeof n.id === "number" ? n.id : Date.now() + Math.floor(Math.random() * 1000),
+      id:
+        typeof n.id === "number"
+          ? n.id
+          : Date.now() + Math.floor(Math.random() * 1000),
       title: String(n.title ?? ""),
       text: String(n.text ?? ""),
       path: String(n.path ?? ""),
@@ -100,9 +115,15 @@ export const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
       resolved: typeof n.resolved === "boolean" ? n.resolved : undefined,
       replies: Array.isArray(n.replies)
         ? n.replies
-            .filter((r): r is Record<string, unknown> => r !== null && typeof r === "object")
+            .filter(
+              (r): r is Record<string, unknown> =>
+                r !== null && typeof r === "object",
+            )
             .map((r) => ({
-              id: typeof r.id === "number" ? r.id : Date.now() + Math.floor(Math.random() * 1000),
+              id:
+                typeof r.id === "number"
+                  ? r.id
+                  : Date.now() + Math.floor(Math.random() * 1000),
               text: String(r.text ?? ""),
               mention: String(r.mention ?? ""),
               at: typeof r.at === "number" ? r.at : 0,
@@ -116,7 +137,10 @@ export const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
  * under `$comments`, `_comments`, or `$jsonote.notes`.
  * Returns the cleaned JSON string (without the metadata property) and the extracted notes.
  */
-export function extractAnnotatedJsonNotes(text: string): { cleanJson: string; notes: SnapshotNote[] | null } {
+export function extractAnnotatedJsonNotes(text: string): {
+  cleanJson: string;
+  notes: SnapshotNote[] | null;
+} {
   try {
     const obj = JSON.parse(text);
     if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
@@ -124,7 +148,12 @@ export function extractAnnotatedJsonNotes(text: string): { cleanJson: string; no
     }
 
     const rawObj = obj as Record<string, unknown>;
-    const rawNotes = rawObj.$comments ?? rawObj._comments ?? (rawObj.$jsonote && typeof rawObj.$jsonote === "object" ? (rawObj.$jsonote as Record<string, unknown>).notes : undefined);
+    const rawNotes =
+      rawObj.$comments ??
+      rawObj._comments ??
+      (rawObj.$jsonote && typeof rawObj.$jsonote === "object"
+        ? (rawObj.$jsonote as Record<string, unknown>).notes
+        : undefined);
     const parsedNotes = normalizeNotes(rawNotes);
 
     if (!parsedNotes || parsedNotes.length === 0) {
@@ -149,7 +178,10 @@ export function extractAnnotatedJsonNotes(text: string): { cleanJson: string; no
  * Embeds notes (comments & replies) into a JSON object as a top-level `$comments` property
  * for portable export.
  */
-export function embedNotesInJson(jsonText: string, notes: SnapshotNote[]): string {
+export function embedNotesInJson(
+  jsonText: string,
+  notes: SnapshotNote[],
+): string {
   if (!notes || notes.length === 0) return jsonText;
   try {
     const obj = JSON.parse(jsonText);
@@ -170,7 +202,8 @@ const compactNotesToNotes = (t: unknown): SnapshotNote[] | undefined => {
   if (!Array.isArray(t)) return undefined;
   return t.map((item) => {
     if (Array.isArray(item)) {
-      const [id, title, text, path, line, mention, color, resolved, replies] = item;
+      const [id, title, text, path, line, mention, color, resolved, replies] =
+        item;
       const note: SnapshotNote = {
         id: typeof id === "number" ? id : Date.now(),
         title: String(title ?? ""),
@@ -192,7 +225,12 @@ const compactNotesToNotes = (t: unknown): SnapshotNote[] | undefined => {
               at: typeof rAt === "number" ? rAt : 0,
             };
           }
-          return { id: Date.now(), text: String((r as SnapshotReply)?.text ?? ""), mention: String((r as SnapshotReply)?.mention ?? ""), at: Number((r as SnapshotReply)?.at ?? 0) };
+          return {
+            id: Date.now(),
+            text: String((r as SnapshotReply)?.text ?? ""),
+            mention: String((r as SnapshotReply)?.mention ?? ""),
+            at: Number((r as SnapshotReply)?.at ?? 0),
+          };
         });
       }
       return note;
@@ -205,14 +243,41 @@ const coerceSnapshot = (raw: unknown): Snapshot | null => {
   if (raw === null || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
 
-  const jsonStr = typeof obj.j === "string" ? obj.j : typeof obj.json === "string" ? obj.json : null;
+  const jsonStr =
+    typeof obj.j === "string"
+      ? obj.j
+      : typeof obj.json === "string"
+        ? obj.json
+        : null;
   if (jsonStr === null) return null;
 
-  const name = typeof obj.n === "string" && obj.n ? obj.n : typeof obj.name === "string" && obj.name ? obj.name : "shared.json";
-  const compare = typeof obj.c === "string" ? obj.c : typeof obj.compare === "string" ? obj.compare : undefined;
-  const notesRaw = obj.t !== undefined ? compactNotesToNotes(obj.t) : normalizeNotes(obj.notes);
-  const view = (["editor", "tree", "query", "table", "graph"] as const).includes((obj.w ?? obj.view) as never) ? ((obj.w ?? obj.view) as Snapshot["view"]) : undefined;
-  const compareOpen = typeof obj.o === "number" ? obj.o === 1 : typeof obj.compareOpen === "boolean" ? obj.compareOpen : undefined;
+  const name =
+    typeof obj.n === "string" && obj.n
+      ? obj.n
+      : typeof obj.name === "string" && obj.name
+        ? obj.name
+        : "shared.json";
+  const compare =
+    typeof obj.c === "string"
+      ? obj.c
+      : typeof obj.compare === "string"
+        ? obj.compare
+        : undefined;
+  const notesRaw =
+    obj.t !== undefined
+      ? compactNotesToNotes(obj.t)
+      : normalizeNotes(obj.notes);
+  const view = (
+    ["editor", "tree", "query", "table", "graph"] as const
+  ).includes((obj.w ?? obj.view) as never)
+    ? ((obj.w ?? obj.view) as Snapshot["view"])
+    : undefined;
+  const compareOpen =
+    typeof obj.o === "number"
+      ? obj.o === 1
+      : typeof obj.compareOpen === "boolean"
+        ? obj.compareOpen
+        : undefined;
 
   const result: Snapshot = { v: 1, name, json: jsonStr };
   if (compare !== undefined) result.compare = compare;
@@ -244,9 +309,12 @@ export function encodeSnapshot(snapshot: Snapshot): string {
     ]);
   }
   if (snapshot.view !== undefined) compact.w = snapshot.view;
-  if (snapshot.compareOpen !== undefined) compact.o = snapshot.compareOpen ? 1 : 0;
+  if (snapshot.compareOpen !== undefined)
+    compact.o = snapshot.compareOpen ? 1 : 0;
 
-  const bytes = deflateSync(new TextEncoder().encode(JSON.stringify(compact)), { level: 9 });
+  const bytes = deflateSync(new TextEncoder().encode(JSON.stringify(compact)), {
+    level: 9,
+  });
   return base64UrlEncode(bytes);
 }
 
@@ -335,8 +403,12 @@ export function readSnapshotFromHash(hash: string): Snapshot | null {
   const legacy = hash.match(/#share=([A-Za-z0-9_-]+)/);
   if (legacy) {
     try {
-      const padded = legacy[1].replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (legacy[1].length % 4)) % 4);
-      const text = new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
+      const padded =
+        legacy[1].replace(/-/g, "+").replace(/_/g, "/") +
+        "=".repeat((4 - (legacy[1].length % 4)) % 4);
+      const text = new TextDecoder().decode(
+        Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)),
+      );
       return coerceSnapshot(JSON.parse(text));
     } catch {
       return null;
@@ -364,7 +436,10 @@ export const SNAPSHOT_FILE_EXT = ".jsonote.json";
 
 /** Build the download filename for a session, from the document name. */
 export function snapshotFileName(documentName: string): string {
-  const base = documentName.replace(/\.jsonote(\.json)?$/i, "").replace(/\.json$/i, "").trim();
+  const base = documentName
+    .replace(/\.jsonote(\.json)?$/i, "")
+    .replace(/\.json$/i, "")
+    .trim();
   const safe = (base || "session").replace(/[^\w.-]+/g, "-");
   return `${safe}${SNAPSHOT_FILE_EXT}`;
 }
@@ -380,7 +455,7 @@ export function serializeSnapshotFile(snapshot: Snapshot): string {
       ...snapshot,
     },
     null,
-    2
+    2,
   );
 }
 
@@ -388,7 +463,8 @@ export function serializeSnapshotFile(snapshot: Snapshot): string {
 export function parseSnapshotFile(text: string): Snapshot | null {
   try {
     const obj = JSON.parse(text);
-    if (obj === null || typeof obj !== "object" || !(SNAPSHOT_MARKER in obj)) return null;
+    if (obj === null || typeof obj !== "object" || !(SNAPSHOT_MARKER in obj))
+      return null;
     return coerceSnapshot(obj);
   } catch {
     return null;

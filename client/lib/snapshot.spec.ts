@@ -20,7 +20,17 @@ const sample: Snapshot = {
   name: "api.json",
   json: '{\n  "a": 1\n}',
   compare: '{\n  "a": 2\n}',
-  notes: [{ id: 1, title: "note", text: "body", path: "a", line: 2, mention: "sam", color: "bg-amber-400" }],
+  notes: [
+    {
+      id: 1,
+      title: "note",
+      text: "body",
+      path: "a",
+      line: 2,
+      mention: "sam",
+      color: "bg-amber-400",
+    },
+  ],
   view: "editor",
   compareOpen: true,
 };
@@ -31,7 +41,17 @@ describe("snapshot encode/decode", () => {
   });
 
   it("compresses repetitive JSON to well under the raw size", () => {
-    const big: Snapshot = { v: 1, name: "big.json", json: JSON.stringify(Array.from({ length: 500 }, () => ({ name: "widget", active: true, count: 3 }))) };
+    const big: Snapshot = {
+      v: 1,
+      name: "big.json",
+      json: JSON.stringify(
+        Array.from({ length: 500 }, () => ({
+          name: "widget",
+          active: true,
+          count: 3,
+        })),
+      ),
+    };
     const encoded = encodeSnapshot(big);
     expect(encoded.length).toBeLessThan(big.json.length / 2);
     expect(decodeSnapshot(encoded)).toEqual(big);
@@ -47,18 +67,34 @@ describe("snapshot encode/decode", () => {
   // but the messaging apps people paste links into.
   it("round-trips a 1000-record document without loss", () => {
     const items = Array.from({ length: 1000 }, (_, i) => ({
-      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+      id: i,
+      name: `Item ${i}`,
+      sku: `SKU-${i}`,
+      active: i % 2 === 0,
+      price: i * 1.5,
     }));
-    const big: Snapshot = { v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) };
+    const big: Snapshot = {
+      v: 1,
+      name: "bulk.json",
+      json: JSON.stringify({ items }, null, 2),
+    };
     const encoded = encodeSnapshot(big);
     expect(decodeSnapshot(encoded)).toEqual(big);
   });
 
   it("keeps the share payload around an eighth of the raw JSON size", () => {
     const items = Array.from({ length: 1000 }, (_, i) => ({
-      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+      id: i,
+      name: `Item ${i}`,
+      sku: `SKU-${i}`,
+      active: i % 2 === 0,
+      price: i * 1.5,
     }));
-    const big: Snapshot = { v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) };
+    const big: Snapshot = {
+      v: 1,
+      name: "bulk.json",
+      json: JSON.stringify({ items }, null, 2),
+    };
     const ratio = encodeSnapshot(big).length / big.json.length;
     // ~0.127 measured. Guard against a regression that stops compressing.
     expect(ratio).toBeLessThan(0.2);
@@ -74,7 +110,17 @@ describe("snapshot encode/decode", () => {
 
   it("embeds and extracts annotated comments from JSON object", () => {
     const origJson = '{\n  "project": "Northstar"\n}';
-    const notes = [{ id: 1, title: "Limit", text: "Check limit", path: "project", line: 2, mention: "chenna", color: "bg-cyan-400" }];
+    const notes = [
+      {
+        id: 1,
+        title: "Limit",
+        text: "Check limit",
+        path: "project",
+        line: 2,
+        mention: "chenna",
+        color: "bg-cyan-400",
+      },
+    ];
     const annotated = embedNotesInJson(origJson, notes as any);
     expect(annotated).toContain('"$comments"');
     expect(annotated).toContain('"Check limit"');
@@ -105,17 +151,33 @@ describe("classifyShareLink", () => {
     // ~15.5k characters measured — works when opened, but will not survive
     // a paste into most chat apps, which is exactly what "long" means.
     const items = Array.from({ length: 1000 }, (_, i) => ({
-      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+      id: i,
+      name: `Item ${i}`,
+      sku: `SKU-${i}`,
+      active: i % 2 === 0,
+      price: i * 1.5,
     }));
-    const encoded = encodeSnapshot({ v: 1, name: "bulk.json", json: JSON.stringify({ items }, null, 2) });
+    const encoded = encodeSnapshot({
+      v: 1,
+      name: "bulk.json",
+      json: JSON.stringify({ items }, null, 2),
+    });
     expect(classifyShareLink(encoded.length)).toBe("long");
   });
 
   it("puts a 100-record document in the safe bucket", () => {
     const items = Array.from({ length: 100 }, (_, i) => ({
-      id: i, name: `Item ${i}`, sku: `SKU-${i}`, active: i % 2 === 0, price: i * 1.5,
+      id: i,
+      name: `Item ${i}`,
+      sku: `SKU-${i}`,
+      active: i % 2 === 0,
+      price: i * 1.5,
     }));
-    const encoded = encodeSnapshot({ v: 1, name: "small.json", json: JSON.stringify({ items }, null, 2) });
+    const encoded = encodeSnapshot({
+      v: 1,
+      name: "small.json",
+      json: JSON.stringify({ items }, null, 2),
+    });
     expect(classifyShareLink(encoded.length)).toBe("safe");
   });
 });
@@ -130,12 +192,21 @@ describe("readSnapshotFromHash", () => {
   it("reads the compressed #s= format", () => {
     // buildSnapshotLink needs window.location; build the hash directly here so
     // this stays a pure-node unit test.
-    expect(readSnapshotFromHash(`#s=${encodeSnapshot(sample)}`)).toEqual(sample);
+    expect(readSnapshotFromHash(`#s=${encodeSnapshot(sample)}`)).toEqual(
+      sample,
+    );
   });
 
   it("reads the legacy uncompressed #share= format", () => {
-    const legacyPayload = { name: "old.json", json: '{"x":1}', compare: '{"x":2}' };
-    const b64 = btoa(JSON.stringify(legacyPayload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const legacyPayload = {
+      name: "old.json",
+      json: '{"x":1}',
+      compare: '{"x":2}',
+    };
+    const b64 = btoa(JSON.stringify(legacyPayload))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
     const result = readSnapshotFromHash(`#share=${b64}`);
     expect(result?.name).toBe("old.json");
     expect(result?.json).toBe('{"x":1}');
@@ -181,7 +252,9 @@ describe("snapshot file", () => {
     });
 
     it("strips characters that break filenames", () => {
-      expect(snapshotFileName("my report / v2.json")).toBe("my-report-v2.jsonote.json");
+      expect(snapshotFileName("my report / v2.json")).toBe(
+        "my-report-v2.jsonote.json",
+      );
     });
   });
 
