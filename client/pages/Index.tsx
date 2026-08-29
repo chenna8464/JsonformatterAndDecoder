@@ -1,67 +1,83 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Link } from "react-router-dom";
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   AtSign,
   Braces,
   Building2,
+  Camera,
   Check,
   ChevronDown,
+  CircleCheck,
   CircleHelp,
   Code2,
-  GitCompare,
   Copy,
+  CornerDownRight,
   Download,
+  ExternalLink,
+  FileCode2,
   FileJson2,
   FilePlus2,
-  FolderOpen,
-  Maximize2,
-  Minimize2,
-  Upload,
   FileSpreadsheet,
   FileText,
-  TerminalSquare,
+  FolderOpen,
+  GitCompare,
+  Globe,
+  GripVertical,
+  History as HistoryIcon,
+  Laptop,
+  Loader2,
+  Mail,
+  Maximize2,
+  MessageSquare,
+  MessageSquarePlus,
+  Minimize2,
+  Moon,
+  MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  GripVertical,
-  Table as TableIcon,
-  ShieldCheck,
-  FileCode2,
-  Loader2,
-  History as HistoryIcon,
-  RotateCcw,
-  Trash2,
-  CircleCheck,
-  CornerDownRight,
-  Reply as ReplyIcon,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Sun,
-  Moon,
-  Laptop,
-  MessageSquare,
-  MessageSquarePlus,
   Pencil,
-  Share2,
-  MoreHorizontal,
+  PictureInPicture,
   Plus,
+  Reply as ReplyIcon,
+  RotateCcw,
   Search,
+  Send,
+  Share2,
+  ShieldCheck,
   Sparkles,
+  Sun,
+  Table as TableIcon,
+  TerminalSquare,
+  Trash2,
+  Upload,
   WandSparkles,
   X,
-  Mail,
-  Send,
-  ExternalLink,
-  Globe,
-  Camera,
-  PictureInPicture,
-  Layers,
 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Link } from "react-router-dom";
 
 const initialJson = "{\n  \n}";
+
+/**
+ * Largest file the editor will open.
+ *
+ * 25 MB of JSON is already an unpleasant editing experience and well past what
+ * anyone reads by hand. The value is a responsiveness ceiling, not a judgement
+ * about what data is reasonable.
+ */
+const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 type Reply = { id: number; text: string; mention: string; at: number };
 type Note = {
@@ -83,8 +99,24 @@ type Workspace = {
   color: string;
 };
 
-import { repairJson } from "@/lib/jsonRepair";
-import { getJsonErrorLine } from "@/lib/utils";
+import JsonCodeEditor, {
+  type JsonCodeEditorHandle,
+} from "@/components/JsonCodeEditor";
+import JsonGraph from "@/components/JsonGraph";
+import { CODEGEN_LANGUAGES, generateCode } from "@/lib/codegen";
+import {
+  csvToJson,
+  extractCsvNotesAndData,
+  jsonToCsv,
+  queryJson,
+  setAtPath,
+} from "@/lib/convert";
+import {
+  CONVERT_FORMATS,
+  formatToJson,
+  jsonToFormat,
+  type ConvertFormat,
+} from "@/lib/convertFormats";
 import {
   buildComparisonReport,
   diffLines,
@@ -92,6 +124,19 @@ import {
   valueDiffs,
   type LineStatus,
 } from "@/lib/diff";
+import {
+  clearHistory,
+  deleteVersion,
+  listVersions,
+  saveVersion,
+  type Version,
+} from "@/lib/history";
+import { repairJson } from "@/lib/jsonRepair";
+import {
+  inferJsonSchema,
+  validateAgainstSchema,
+  type SchemaIssue,
+} from "@/lib/schema";
 import { copyText, downloadFile } from "@/lib/share";
 import {
   buildSnapshotLink,
@@ -105,42 +150,13 @@ import {
   type Snapshot,
 } from "@/lib/snapshot";
 import {
-  csvToJson,
-  extractCsvNotesAndData,
-  jsonToCsv,
-  queryJson,
-  setAtPath,
-} from "@/lib/convert";
-import { CODEGEN_LANGUAGES, generateCode } from "@/lib/codegen";
-import {
-  CONVERT_FORMATS,
-  formatToJson,
-  jsonToFormat,
-  type ConvertFormat,
-} from "@/lib/convertFormats";
-import {
-  clearHistory,
-  deleteVersion,
-  listVersions,
-  saveVersion,
-  type Version,
-} from "@/lib/history";
-import { toast } from "sonner";
-import { useTheme } from "next-themes";
-import {
-  inferJsonSchema,
-  validateAgainstSchema,
-  type SchemaIssue,
-} from "@/lib/schema";
-import {
   arrayObjectFields,
   sortJsonValue,
   type SortDirection,
 } from "@/lib/sort";
-import JsonCodeEditor, {
-  type JsonCodeEditorHandle,
-} from "@/components/JsonCodeEditor";
-import JsonGraph from "@/components/JsonGraph";
+import { getJsonErrorLine } from "@/lib/utils";
+import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 type JsonTreeProps = {
   label: string;
@@ -1083,7 +1099,17 @@ export default function Index() {
   const [supportCategory, setSupportCategory] = useState("General Query");
   const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
-  const [supportIncludeJson, setSupportIncludeJson] = useState(true);
+  /*
+   * Defaults to off.
+   *
+   * Ticking this puts up to 1200 characters of the user's document into a
+   * mail.google.com query string, so it is recorded in Google's request logs and
+   * in the user's own browser history — not just in a draft they can review
+   * before sending. This is the only place in the whole app where document
+   * content leaves the browser, and the app's headline promise is that it never
+   * does. A promise like that cannot ship pre-ticked.
+   */
+  const [supportIncludeJson, setSupportIncludeJson] = useState(false);
   const [querySubmitted, setQuerySubmitted] = useState(false);
   const [queryRefId, setQueryRefId] = useState("");
   // Callback-request state removed with the phone/WhatsApp contact options:
@@ -1309,7 +1335,7 @@ Ref ID: #${refId}
 Query Details:
 ${supportMessage}
 
-${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
+${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — review before sending) ---\n${snippet}` : ""}`;
 
     const encodedBody = encodeURIComponent(mailBodyText);
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=chennadvp7799@gmail.com&su=${mailSubject}&body=${encodedBody}`;
@@ -2046,6 +2072,23 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
   };
 
   const importFile = (file: File) => {
+    /*
+     * Refuse oversized files before reading them.
+     *
+     * Everything downstream is synchronous and on the main thread — FileReader,
+     * then repairJson's five parse attempts, then CodeMirror rendering the
+     * result — so there is no point at which a too-large document degrades
+     * gracefully; it just hangs the tab. Drops are accepted window-wide, so a
+     * mis-dragged multi-gigabyte file does it by accident. A clear refusal beats
+     * a freeze.
+     */
+    if (file.size > MAX_IMPORT_BYTES) {
+      toast.error(`${file.name} is too large to open`, {
+        description: `That file is ${formatBytes(file.size)}. The limit is ${formatBytes(MAX_IMPORT_BYTES)} — past that the editor cannot stay responsive.`,
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? "");
@@ -5429,8 +5472,13 @@ ${snippet ? `\n--- Attached JSON Snippet (Sanitized) ---\n${snippet}` : ""}`;
                         className="rounded border-[var(--edge)] text-[var(--brand)] focus:ring-0"
                       />
                       <span>
-                        Attach current JSON document snippet for faster
-                        diagnosis (sanitized)
+                        Attach the first 1,200 characters of my document to help
+                        diagnosis
+                        <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">
+                          This is the only feature that sends document content
+                          off your device — it travels in the Gmail compose URL,
+                          so review the draft before sending.
+                        </span>
                       </span>
                     </label>
 

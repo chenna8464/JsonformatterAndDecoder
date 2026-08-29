@@ -143,6 +143,30 @@ const coerceCell = (text: string): Primitive => {
   return text;
 };
 
+/*
+ * Path segments that must never be honoured when building an object out of
+ * attacker-influenced strings.
+ *
+ * CSV headers are attacker-influenced: a .csv arrives by drag-and-drop or the
+ * import picker and its header row reaches setDeep verbatim. A header of
+ * `__proto__.polluted` used to walk INTO Object.prototype instead of creating a
+ * property, because `typeof node["__proto__"]` is "object" and non-null, so the
+ * "create the container if it is missing" guard was satisfied by the prototype
+ * itself. The final assignment then landed on Object.prototype, visible to
+ * every object on the page. Confirmed before the fix: a two-line CSV made
+ * `({}).polluted === "pwned"`.
+ *
+ * `constructor` and `prototype` are blocked for the same class of reason.
+ * `constructor` did not actually pollute — its typeof is "function", so the
+ * guard replaced it with a plain object — but reaching either name through a
+ * data path is never legitimate here.
+ */
+const UNSAFE_PATH_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** True if a dot-path from untrusted data tries to reach the prototype chain. */
+export const isUnsafePath = (path: string): boolean =>
+  path.split(".").some((segment) => UNSAFE_PATH_SEGMENTS.has(segment));
+
 /** Rebuild nested structure from dot-path column names. */
 const setDeep = (
   target: Record<string, unknown>,
@@ -150,10 +174,22 @@ const setDeep = (
   value: Primitive,
 ): void => {
   const segments = path.split(".");
+  // Drop the whole column rather than write a mangled key: a CSV with a
+  // prototype-reaching header is either an attack or a broken export, and
+  // neither deserves a best-effort interpretation.
+  if (segments.some((segment) => UNSAFE_PATH_SEGMENTS.has(segment))) return;
   let node: Record<string, unknown> = target;
   for (let i = 0; i < segments.length - 1; i++) {
     const key = segments[i];
-    if (typeof node[key] !== "object" || node[key] === null) node[key] = {};
+    // Own-property check only. A bare `typeof node[key]` consults the
+    // prototype chain and reports inherited members as usable containers.
+    if (
+      !Object.prototype.hasOwnProperty.call(node, key) ||
+      typeof node[key] !== "object" ||
+      node[key] === null
+    ) {
+      node[key] = {};
+    }
     node = node[key] as Record<string, unknown>;
   }
   node[segments[segments.length - 1]] = value;
@@ -242,7 +278,12 @@ export function queryJson(root: unknown, query: string): QueryMatch[] {
           );
         }
         const record = value as Record<string, unknown>;
-        return key in record
+        // `key in record` consults the prototype chain, so queries for
+        // `constructor`, `__proto__` or `toString` resolved to built-in
+        // machinery and got rendered as if it were part of the user's
+        // document. Read-only, so not an escalation, but it reports matches
+        // that do not exist in the JSON.
+        return Object.prototype.hasOwnProperty.call(record, key)
           ? [{ path: `${entry.path}.${key}`, value: record[key] }]
           : [];
       });

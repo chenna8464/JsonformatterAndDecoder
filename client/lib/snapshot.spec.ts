@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyShareLink,
   decodeSnapshot,
   embedNotesInJson,
   encodeSnapshot,
@@ -7,10 +8,9 @@ import {
   parseSnapshotFile,
   readSnapshotFromHash,
   serializeSnapshotFile,
-  SNAPSHOT_MARKER,
-  classifyShareLink,
-  SHARE_LINK_PASTE_SAFE,
   SHARE_LINK_MAX,
+  SHARE_LINK_PASTE_SAFE,
+  SNAPSHOT_MARKER,
   snapshotFileName,
   type Snapshot,
 } from "./snapshot";
@@ -260,5 +260,44 @@ describe("snapshot file", () => {
 
   it("returns null for invalid JSON", () => {
     expect(parseSnapshotFile("{not json")).toBeNull();
+  });
+});
+
+describe("decodeSnapshot — decompression bomb (regression)", () => {
+  it("refuses a raw-deflate bomb carried in a share link", async () => {
+    const { deflateSync } = await import("fflate");
+
+    // 48 MB of zeros deflates to well under 200 KB. Every current `#s=` link is
+    // raw deflate, and decodeSnapshot used to try unbounded `inflateSync` first,
+    // so the documented 8 MB / 64 MB limits only ever guarded the legacy gzip
+    // format that nothing produces. Measured before the fix: a 40 KB link
+    // inflated 40 MB in 137 ms without complaint.
+    const bytes = deflateSync(new Uint8Array(48 * 1024 * 1024), { level: 9 });
+    expect(bytes.length).toBeLessThan(200 * 1024);
+
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    const encoded = btoa(binary)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    expect(decodeSnapshot(encoded)).toBeNull();
+    expect(readSnapshotFromHash(`#s=${encoded}`)).toBeNull();
+  });
+
+  it("still round-trips a genuine snapshot", () => {
+    expect(decodeSnapshot(encodeSnapshot(sample))).toEqual(sample);
+    expect(readSnapshotFromHash(`#s=${encodeSnapshot(sample)}`)).toEqual(
+      sample,
+    );
+  });
+
+  it("returns null for junk rather than throwing", () => {
+    expect(decodeSnapshot("not-valid-base64-deflate")).toBeNull();
+    expect(readSnapshotFromHash("#s=%%%")).toBeNull();
+    expect(readSnapshotFromHash("#nothing")).toBeNull();
   });
 });

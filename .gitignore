@@ -28,7 +28,14 @@ package-lock.json
 *.sw?
 
 .config/
-!.env
+
+# Local environment. `.env` used to be force-tracked here with `!.env`, on the
+# reasoning that it held nothing secret. That is true today (one ping message),
+# but it makes the safe-looking act of adding a key to .env silently commit it.
+# Tracked template lives in .env.example instead.
+.env
+.env.*
+!.env.example
 
 # Firebase
 .firebase/

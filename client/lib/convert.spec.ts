@@ -1,11 +1,5 @@
-import { describe, expect, it } from "vitest";
-import {
-  csvToJson,
-  extractCsvNotesAndData,
-  jsonToCsv,
-  queryJson,
-  setAtPath,
-} from "./convert";
+import { afterEach, describe, expect, it } from "vitest";
+import { csvToJson, jsonToCsv, queryJson, setAtPath } from "./convert";
 
 describe("jsonToCsv", () => {
   it("converts an array of objects with nested fields", () => {
@@ -100,5 +94,63 @@ describe("setAtPath", () => {
     ) as typeof sample;
     expect(updated.endpoints[0].method).toBe("POST");
     expect(sample.endpoints[0].method).toBe("GET");
+  });
+});
+
+describe("csvToJson — prototype pollution (regression)", () => {
+  // Before the fix, setDeep walked INTO Object.prototype: `typeof
+  // node["__proto__"]` is "object" and non-null, so the "create the container if
+  // it's missing" guard was satisfied by the prototype itself, and the final
+  // assignment landed on Object.prototype. A two-line CSV — reachable just by
+  // dropping a file on the window — set ({}).polluted for the whole page.
+  //
+  // Only names that must never exist on Object.prototype belong here.
+  // Deliberately excludes real built-ins like `toString`: deleting one of those
+  // to "clean up" breaks the runtime for every test that follows.
+  const probeKeys = ["polluted", "isAdmin"];
+
+  afterEach(() => {
+    for (const key of probeKeys)
+      delete (Object.prototype as Record<string, unknown>)[key];
+  });
+
+  it("does not pollute Object.prototype via a __proto__ header", () => {
+    csvToJson("__proto__.polluted\npwned");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute via a constructor.prototype header", () => {
+    csvToJson("constructor.prototype.isAdmin\ntrue");
+    expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+  });
+
+  it("drops the unsafe column but still parses the safe ones", () => {
+    const rows = csvToJson("name,__proto__.polluted,age\nAda,pwned,36");
+    expect(rows).toEqual([{ name: "Ada", age: 36 }]);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("treats an inherited member as absent rather than as a container", () => {
+    // `toString` exists on the prototype but not as an own property. The old
+    // `typeof node[key] !== "object"` test consulted the chain.
+    csvToJson("toString.x\ny");
+    expect(typeof {}.toString).toBe("function");
+  });
+});
+
+describe("queryJson — prototype chain (regression)", () => {
+  it("does not report inherited members as matches", () => {
+    // `key in record` walked the prototype chain, so these resolved to built-in
+    // machinery and were rendered as though they were part of the document.
+    expect(queryJson({ a: 1 }, "constructor")).toEqual([]);
+    expect(queryJson({ a: 1 }, "toString")).toEqual([]);
+    expect(queryJson({ a: 1 }, "__proto__")).toEqual([]);
+  });
+
+  it("still matches real own properties, including falsy values", () => {
+    expect(queryJson({ a: 0 }, "a")).toEqual([{ path: "$.a", value: 0 }]);
+    expect(queryJson({ constructor: "mine" }, "constructor")).toEqual([
+      { path: "$.constructor", value: "mine" },
+    ]);
   });
 });

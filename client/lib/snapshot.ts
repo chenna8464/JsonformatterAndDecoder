@@ -1,4 +1,4 @@
-import { deflateSync, inflateSync, gzipSync, Gunzip } from "fflate";
+import { deflateSync, Gunzip, Inflate } from "fflate";
 
 // A share link or snapshot file is untrusted input. Bound both the compressed
 // size and the decompressed size so a crafted "zip bomb" (a tiny payload that
@@ -6,19 +6,32 @@ import { deflateSync, inflateSync, gzipSync, Gunzip } from "fflate";
 const MAX_COMPRESSED_BYTES = 8 * 1024 * 1024; // 8 MB in — a real snapshot is tiny
 const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB out — huge for any real JSON
 
-/** Streaming gunzip that aborts as soon as output exceeds MAX_DECOMPRESSED_BYTES. */
-const boundedGunzip = (data: Uint8Array): Uint8Array => {
+/**
+ * Run a streaming fflate decompressor, aborting as soon as the output exceeds
+ * MAX_DECOMPRESSED_BYTES.
+ *
+ * The bound has to live in the *streaming* decompressor. The one-shot
+ * `inflateSync` / `gunzipSync` helpers allocate the whole output before they
+ * return, so by the time you could measure the result the memory is already
+ * committed and the tab is already gone.
+ */
+const boundedDecompress = (
+  data: Uint8Array,
+  make: (onChunk: (chunk: Uint8Array) => void) => {
+    push(data: Uint8Array, final: boolean): void;
+  },
+): Uint8Array => {
   if (data.length > MAX_COMPRESSED_BYTES)
     throw new Error("Compressed payload too large");
   const chunks: Uint8Array[] = [];
   let total = 0;
-  const gunzip = new Gunzip((chunk) => {
+  const stream = make((chunk) => {
     total += chunk.length;
     if (total > MAX_DECOMPRESSED_BYTES)
       throw new Error("Decompressed payload too large");
     chunks.push(chunk);
   });
-  gunzip.push(data, true); // callback runs synchronously; an overflow throw unwinds here
+  stream.push(data, true); // callback runs synchronously; an overflow throw unwinds here
   const out = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) {
@@ -27,6 +40,17 @@ const boundedGunzip = (data: Uint8Array): Uint8Array => {
   }
   return out;
 };
+
+/**
+ * Bounded raw-deflate inflate — the format every current `#s=` link uses, and
+ * the one path that had no limit on it at all.
+ */
+const boundedInflateRaw = (data: Uint8Array): Uint8Array =>
+  boundedDecompress(data, (onChunk) => new Inflate(onChunk));
+
+/** Bounded gunzip — the legacy link format. */
+const boundedGunzip = (data: Uint8Array): Uint8Array =>
+  boundedDecompress(data, (onChunk) => new Gunzip(onChunk));
 
 /**
  * A Session Snapshot captures everything needed to reproduce what the sharer
@@ -324,7 +348,13 @@ export function decodeSnapshot(encoded: string): Snapshot | null {
     const bytes = base64UrlDecode(encoded);
     let json = "";
     try {
-      json = new TextDecoder().decode(inflateSync(bytes));
+      // Was `inflateSync(bytes)` — unbounded. Every current link is raw
+      // deflate, so this branch always won and the MAX_COMPRESSED_BYTES /
+      // MAX_DECOMPRESSED_BYTES limits above only ever guarded the legacy gzip
+      // format that nothing produces. Measured: a ~40 KB `#s=` link inflated
+      // 40 MB in 137 ms without complaint, and the 8 MB input allowance scales
+      // that to gigabytes of allocation from one pasted URL.
+      json = new TextDecoder().decode(boundedInflateRaw(bytes));
     } catch {
       json = new TextDecoder().decode(boundedGunzip(bytes));
     }

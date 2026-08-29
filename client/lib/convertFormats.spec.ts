@@ -66,3 +66,109 @@ describe("formatToJson", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe("formatToJson — YAML alias bomb (regression)", () => {
+  /**
+   * Build a YAML alias bomb: each level is an array of `fan` aliases to the level
+   * below, so the expanded tree is fan^levels while the text stays a few hundred
+   * bytes.
+   */
+  const bomb = (levels: number, fan = 9) => {
+    let out = `l0: &l0 [${Array(fan).fill('"x"').join(",")}]\n`;
+    for (let i = 1; i < levels; i++) {
+      out += `l${i}: &l${i} [${Array(fan)
+        .fill(`*l${i - 1}`)
+        .join(",")}]\n`;
+    }
+    return (
+      out +
+      `top: [${Array(fan)
+        .fill(`*l${levels - 1}`)
+        .join(",")}]\n`
+    );
+  };
+
+  it("rejects a bomb instead of expanding it", () => {
+    const source = bomb(7);
+    expect(source.length).toBeLessThan(500); // ~365 bytes in
+
+    const started = Date.now();
+    const result = formatToJson(source, "yaml");
+    const elapsed = Date.now() - started;
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/too much data/i);
+    // Unfixed this produced a 206 MB string, and ~2 s of frozen tab once
+    // pretty-printed. The guard walks the shared-reference DAG, so it is
+    // O(unique nodes) and returns effectively instantly.
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  it("rejects a bomb one level larger without getting slower", () => {
+    const started = Date.now();
+    expect(formatToJson(bomb(9), "yaml").ok).toBe(false);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  it("rejects a self-referencing anchor rather than throwing on a cycle", () => {
+    const result = formatToJson("a: &a\n  self: *a\n", "yaml");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/too much data/i);
+  });
+
+  it("still converts ordinary YAML that reuses anchors legitimately", () => {
+    // Shared-defaults anchors are idiomatic (docker-compose, CI configs) and must
+    // keep working — the guard is a size ceiling, not an anchor ban.
+    //
+    // This reuses the anchor directly rather than through a `<<` merge key:
+    // merge keys are a YAML 1.1 type that js-yaml's default schema does not
+    // resolve, so `<<` would stay a literal key. Pre-existing behaviour,
+    // unrelated to the expansion guard.
+    const result = formatToJson(
+      [
+        "defaults: &defaults",
+        "  retries: 3",
+        "  timeout: 30",
+        "a: *defaults",
+        "b: *defaults",
+        "",
+      ].join("\n"),
+      "yaml",
+    );
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(result.value!)).toEqual({
+      defaults: { retries: 3, timeout: 30 },
+      a: { retries: 3, timeout: 30 },
+      b: { retries: 3, timeout: 30 },
+    });
+  });
+});
+
+describe("formatToJson — parser hardening (documented behaviour)", () => {
+  // These are guarantees the dependencies provide rather than things this code
+  // implements. The tests exist so a future version bump that regresses one of
+  // them fails here instead of in the wild.
+  it("refuses XML external entities (XXE)", () => {
+    const result = formatToJson(
+      '<?xml version="1.0"?><!DOCTYPE r [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><r>&xxe;</r>',
+      "xml",
+    );
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("root:");
+  });
+
+  it("refuses an XML element named __proto__", () => {
+    const result = formatToJson(
+      "<r><__proto__><p>x</p></__proto__></r>",
+      "xml",
+    );
+    expect(result.ok).toBe(false);
+    expect(({} as Record<string, unknown>).p).toBeUndefined();
+  });
+
+  it("refuses the YAML !!js/function tag", () => {
+    expect(
+      formatToJson('x: !!js/function "function(){return 1}"', "yaml").ok,
+    ).toBe(false);
+  });
+});

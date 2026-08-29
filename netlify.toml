@@ -1,22 +1,28 @@
 [build]
   command = "npm run build:client"
-  functions = "netlify/functions"
   publish = "dist/spa"
 
 [build.environment]
   PNPM_FLAGS = "--no-frozen-lockfile"
 
-[functions]
-
-  external_node_modules = ["express"]
-  node_bundler = "esbuild"
-
-# API routes redirected to Netlify Serverless Function
-[[redirects]]
-  force = true
-  from = "/api/*"
-  status = 200
-  to = "/.netlify/functions/api/:splat"
+# NOTE: there is deliberately no serverless function and no /api/* redirect.
+#
+# There used to be both: `/api/*` was force-redirected to a Netlify Function
+# wrapping the Express app in server/. In production it returned HTTP 502 on
+# every request — `Cannot find module 'express'`, because
+# `external_node_modules = ["express"]` told esbuild not to bundle express while
+# nothing else put it in the function's runtime — and the 502 body was a full
+# Lambda stack trace exposing internal paths.
+#
+# Nothing called it. The client makes no fetch/XHR/sendBeacon calls at all; the
+# only route was an unauthenticated /api/ping health check that the app never
+# read. So the function was a broken, unused endpoint that leaked stack traces
+# and pulled express's dependency surface into the deploy.
+#
+# Removing it is also what makes the privacy claim simple to defend: there is no
+# server-side component, so there is nothing that could receive or log a user's
+# JSON. server/ is kept for local development only, where vite.config.ts mounts
+# it as dev middleware.
 
 # SPA Fallback: Redirect all non-file client routes to index.html for React Router
 [[redirects]]
