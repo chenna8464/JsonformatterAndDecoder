@@ -14,6 +14,20 @@ export type Version = {
   size: number;
 };
 
+/*
+ * Deliberately still "jsonote", from before the app was renamed to JSONField.
+ *
+ * An IndexedDB database name is an address, not a label. Nobody ever sees this
+ * string, but changing it points the app at a brand-new empty database and
+ * orphans the old one — every existing user would silently lose their whole
+ * version history (up to 30 days of documents) on the deploy that renamed it,
+ * with no error and nothing to restore from.
+ *
+ * That trade is only worth making for a cosmetic win if you also ship a
+ * migration that copies the old store across, and there is no reason to write
+ * one for a name no user reads. Renaming it is a data-loss bug wearing a
+ * rebrand's clothing.
+ */
 const DB_NAME = "jsonote";
 const STORE = "versions";
 export const MAX_PER_DOC = 30; // 30 snapshots sweet spot
@@ -26,7 +40,10 @@ const getDb = () => {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, 1, {
       upgrade(db) {
-        const store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+        const store = db.createObjectStore(STORE, {
+          keyPath: "id",
+          autoIncrement: true,
+        });
         store.createIndex("docKey", "docKey");
         store.createIndex("docKey_savedAt", ["docKey", "savedAt"]);
       },
@@ -39,7 +56,10 @@ const getDb = () => {
  * Pure decision: should we snapshot this content? Skip if it's empty or
  * identical to the most recent stored version (avoids duplicate noise).
  */
-export function shouldSaveVersion(content: string, latest: Version | undefined): boolean {
+export function shouldSaveVersion(
+  content: string,
+  latest: Version | undefined,
+): boolean {
   if (!content.trim()) return false;
   if (latest && latest.content === content) return false;
   return true;
@@ -53,7 +73,7 @@ export function versionsToPrune(
   versions: Version[],
   max = MAX_PER_DOC,
   maxAgeMs = RETENTION_MS,
-  now = Date.now()
+  now = Date.now(),
 ): number[] {
   if (versions.length <= 1) return [];
 
@@ -83,7 +103,10 @@ export function versionsToPrune(
 }
 
 /** All versions for a document, newest first. Automatically prunes expired ones. */
-export async function listVersions(docKey: string, now = Date.now()): Promise<Version[]> {
+export async function listVersions(
+  docKey: string,
+  now = Date.now(),
+): Promise<Version[]> {
   const db = await getDb();
   const all = (await db.getAllFromIndex(STORE, "docKey", docKey)) as Version[];
   const sorted = all.sort((a, b) => b.savedAt - a.savedAt);
@@ -92,7 +115,10 @@ export async function listVersions(docKey: string, now = Date.now()): Promise<Ve
   const pruneIds = versionsToPrune(sorted, MAX_PER_DOC, RETENTION_MS, now);
   if (pruneIds.length) {
     const tx = db.transaction(STORE, "readwrite");
-    await Promise.all([...pruneIds.map((pid) => tx.store.delete(pid)), tx.done]);
+    await Promise.all([
+      ...pruneIds.map((pid) => tx.store.delete(pid)),
+      tx.done,
+    ]);
     return sorted.filter((v) => v.id !== undefined && !pruneIds.includes(v.id));
   }
 
@@ -103,16 +129,32 @@ export async function listVersions(docKey: string, now = Date.now()): Promise<Ve
  * Save a version if it's meaningfully new. Returns the created version, or null
  * if it was skipped as a duplicate. `now` is injectable for testing.
  */
-export async function saveVersion(docKey: string, name: string, content: string, now = Date.now()): Promise<Version | null> {
+export async function saveVersion(
+  docKey: string,
+  name: string,
+  content: string,
+  now = Date.now(),
+): Promise<Version | null> {
   const existing = await listVersions(docKey, now);
   if (!shouldSaveVersion(content, existing[0])) return null;
 
   const db = await getDb();
-  const version: Version = { docKey, name, content, savedAt: now, size: new Blob([content]).size };
+  const version: Version = {
+    docKey,
+    name,
+    content,
+    savedAt: now,
+    size: new Blob([content]).size,
+  };
   const id = (await db.add(STORE, version)) as number;
   version.id = id;
 
-  const prune = versionsToPrune([version, ...existing], MAX_PER_DOC, RETENTION_MS, now);
+  const prune = versionsToPrune(
+    [version, ...existing],
+    MAX_PER_DOC,
+    RETENTION_MS,
+    now,
+  );
   if (prune.length) {
     const tx = db.transaction(STORE, "readwrite");
     await Promise.all([...prune.map((pid) => tx.store.delete(pid)), tx.done]);
@@ -120,13 +162,19 @@ export async function saveVersion(docKey: string, name: string, content: string,
   return version;
 }
 
-export async function pruneExpiredVersions(docKey: string, now = Date.now()): Promise<number> {
+export async function pruneExpiredVersions(
+  docKey: string,
+  now = Date.now(),
+): Promise<number> {
   const existing = await listVersions(docKey, now);
   const pruneIds = versionsToPrune(existing, MAX_PER_DOC, RETENTION_MS, now);
   if (pruneIds.length) {
     const db = await getDb();
     const tx = db.transaction(STORE, "readwrite");
-    await Promise.all([...pruneIds.map((pid) => tx.store.delete(pid)), tx.done]);
+    await Promise.all([
+      ...pruneIds.map((pid) => tx.store.delete(pid)),
+      tx.done,
+    ]);
   }
   return pruneIds.length;
 }
@@ -145,5 +193,8 @@ export async function clearHistory(docKey: string): Promise<void> {
   const db = await getDb();
   const versions = await listVersions(docKey);
   const tx = db.transaction(STORE, "readwrite");
-  await Promise.all([...versions.map((v) => tx.store.delete(v.id as number)), tx.done]);
+  await Promise.all([
+    ...versions.map((v) => tx.store.delete(v.id as number)),
+    tx.done,
+  ]);
 }

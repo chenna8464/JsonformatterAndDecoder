@@ -1,6 +1,6 @@
+import * as express from "express";
 import path from "node:path";
 import { createServer } from "./index";
-import * as express from "express";
 
 const app = createServer();
 const port = process.env.PORT || 3000;
@@ -23,7 +23,7 @@ app.get("*", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`🚀 JSONote server running on port ${port}`);
+  console.log(`🚀 JSONField server running on port ${port}`);
   console.log(`📱 Frontend: http://localhost:${port}`);
   console.log(`🔧 API: http://localhost:${port}/api`);
 });

@@ -819,7 +819,7 @@ interface FaqItem {
 
 const FAQ_ITEMS: FaqItem[] = [
   {
-    id: "what-is-jsonote",
+    id: "what-is-jsonfield",
     category: "general",
     categoryLabel: "Getting Started",
     question:
@@ -1034,8 +1034,11 @@ export default function Index() {
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqSearch, setFaqSearch] = useState("");
   const [faqCategory, setFaqCategory] = useState<string>("all");
+  // Was "what-is-json-desk", which matched no entry in FAQ_ITEMS — left behind
+  // by an earlier rename, so the FAQ opened with nothing expanded instead of
+  // with the lead answer open. Kept in sync with the first item's id.
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>(
-    "what-is-json-desk",
+    "what-is-jsonfield",
   );
   const [tourOpen, setTourOpen] = useState(false);
   const [pipActive, setPipActive] = useState(false);
@@ -2093,7 +2096,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
     reader.onload = () => {
       const text = String(reader.result ?? "");
       try {
-        // A .jsonote snapshot file restores full shared session (doc, compare, notes, view)
+        // A .jsonfield snapshot file restores full shared session (doc, compare, notes, view)
         const snapshot = parseSnapshotFile(text);
         if (snapshot) {
           restoreSnapshot(snapshot, "file");
@@ -2407,7 +2410,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
       shareAsFile(includeCompare, true);
       toast.info(`Too large to share as a link (${chars} characters)`, {
         description:
-          "Sent as a .jsonote snapshot file instead — it carries the same session, at any size. The recipient imports it to restore everything.",
+          "Sent as a .jsonfield snapshot file instead — it carries the same session, at any size. The recipient imports it to restore everything.",
       });
       return;
     }
@@ -2462,9 +2465,9 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
   // `silent` when the caller already explained why we fell back to a file —
   // otherwise the too-large path stacks two toasts for one click.
   const shareAsFile = (includeCompare: boolean, silent = false) => {
-    // Named after the document, not "download.jsonote". A recipient sent
-    // three sessions otherwise gets download.jsonote, download(1).jsonote,
-    // download(2).jsonote and cannot tell them apart.
+    // Named after the document, not "download.jsonfield". A recipient sent
+    // three sessions otherwise gets download.jsonfield, download(1).jsonfield,
+    // download(2).jsonfield and cannot tell them apart.
     const fileName = snapshotFileName(documentName);
     downloadFile(
       fileName,
@@ -2609,13 +2612,13 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
             <p className="text-[15px] font-bold tracking-[-0.02em]">
               Drop to open
             </p>
-            <p className="eyebrow">.jsonote.json · .json · .csv · .txt</p>
+            <p className="eyebrow">.jsonfield.json · .json · .csv · .txt</p>
           </div>
         </div>
       )}
       <header className="flex h-[76px] items-center justify-between border-b border-[var(--rule)] bg-[var(--surface)] px-5 lg:px-8">
         {/* Brand: a square die-stamp, not a rounded app icon. The
-            wordmark sets JSON in mono and Desk in Manrope — the tool and
+            wordmark sets JSON in mono and Field in Manrope — the tool and
             the surface, stated in the two typefaces the UI runs on. */}
         <div className="flex items-center gap-3.5">
           {/* The violet underbar that used to sit here read as a
@@ -2633,7 +2636,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
               <span className="font-mono font-medium tracking-[-0.02em]">
                 JSON
               </span>
-              <span className="font-extrabold tracking-[-0.045em]">Desk</span>
+              <span className="font-extrabold tracking-[-0.045em]">Field</span>
             </h1>
             <p className="eyebrow mt-1.5">The JSON editor that remembers</p>
           </div>
@@ -3048,7 +3051,10 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json,.jsonote,.csv,.txt,application/json,text/csv"
+                // `.jsonote` stays listed alongside `.jsonfield`: sessions saved
+                // before the rename must still be selectable in the picker,
+                // otherwise the file a recipient is holding appears greyed out.
+                accept=".json,.jsonfield,.jsonote,.csv,.txt,application/json,text/csv"
                 className="hidden"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -3073,9 +3079,9 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
                     className="menu-surface absolute right-0 top-11 z-40 w-[19rem]"
                   >
                     {/* The hint used to read ".json / .csv / .txt" and omit
-                        .jsonote — the one format a recipient of a shared
-                        session is holding. The input already accepted it;
-                        the label just never said so, which left "where do
+                        the session extension — the one format a recipient of a
+                        shared session is holding. The input already accepted
+                        it; the label just never said so, which left "where do
                         I put this file?" unanswered. */}
                     <button
                       onClick={() => {
@@ -3086,7 +3092,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
                     >
                       <Upload size={15} className="text-[var(--brand)]" />{" "}
                       Import file or session
-                      <span className="menu-hint">.jsonote.json / .csv</span>
+                      <span className="menu-hint">.jsonfield.json / .csv</span>
                     </button>
                     {/* Producing a session file had NO permanent entry point:
                         it only happened automatically when a share link was
@@ -4499,7 +4505,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
                     JSON
                   </span>
                   <span className="font-extrabold tracking-[-0.045em]">
-                    Desk
+                    Field
                   </span>
                 </span>
                 <span className="chrome border-l border-[var(--rule)] pl-3 text-[var(--brand)]">
@@ -4945,7 +4951,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
                   <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                     Share your entire workspace (JSON payload + all line notes +
                     replies + compare diffs) via a compressed URL `#s=` link or
-                    `.jsonote` file.
+                    `.jsonfield` file.
                   </p>
                 </div>
                 <button
@@ -5682,7 +5688,7 @@ ${snippet ? `\n--- Attached JSON Snippet (first 1200 chars, not sanitized — re
                           Compare JSON documents with color-coded diff
                           highlights, and share your entire session (including
                           diffs and comments) via compressed URL links or
-                          portable `.jsonote` files.
+                          portable `.jsonfield` files.
                         </p>
                       </div>
                       <div>

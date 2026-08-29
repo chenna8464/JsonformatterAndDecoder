@@ -89,7 +89,19 @@ export type Snapshot = {
 };
 
 /** Marker that identifies a snapshot file/object vs a plain JSON document. */
-export const SNAPSHOT_MARKER = "jsonote.snapshot";
+export const SNAPSHOT_MARKER = "jsonfield.snapshot";
+
+/**
+ * The marker written before the app was renamed to JSONField.
+ *
+ * Still accepted on import, and deliberately not removed. This string is a wire
+ * format, not branding: it is the only thing that tells parseSnapshotFile a file
+ * is a session rather than an ordinary JSON document. Every `.jsonote.json` file
+ * a user has already saved or shared carries it, and dropping it would turn all
+ * of those into "not a snapshot" with no explanation. Renaming the constant is
+ * free; renaming the value people already have on disk is not.
+ */
+export const LEGACY_SNAPSHOT_MARKER = "jsonote.snapshot";
 
 const CHUNK = 0x8000;
 
@@ -159,6 +171,10 @@ export const normalizeNotes = (value: unknown): SnapshotNote[] | undefined => {
 /**
  * Extracts embedded notes (comments & replies) from a JSON object if present
  * under `$comments`, `_comments`, or `$jsonote.notes`.
+ *
+ * `$jsonote` is a read-only legacy path: embedNotesInJson has only ever written
+ * `$comments`, so nothing produces `$jsonote` any more. It stays so documents
+ * exported by the JSONote-era app still restore their notes.
  * Returns the cleaned JSON string (without the metadata property) and the extracted notes.
  */
 export function extractAnnotatedJsonNotes(text: string): {
@@ -449,25 +465,28 @@ export function readSnapshotFromHash(hash: string): Snapshot | null {
 
 /** A snapshot file is a JSON object tagged with our marker plus the snapshot fields. */
 /**
- * Session files are written as `<name>.jsonote.json`, not `<name>.jsonote`.
+ * Session files are written as `<name>.jsonfield.json`, not `<name>.jsonfield`.
  *
- * The bare `.jsonote` extension meant no operating system could open the
- * file: no icon, no preview, nothing on double-click — and some mail and
- * chat filters silently strip attachments with unrecognised extensions.
- * The contents were always ordinary JSON, so the extension was costing
- * openability for nothing. A trailing `.json` makes it open, preview and
- * transmit everywhere, while `.jsonote` still marks it as a session.
+ * A bare custom extension means no operating system can open the file: no icon,
+ * no preview, nothing on double-click — and some mail and chat filters silently
+ * strip attachments with unrecognised extensions. The contents are always
+ * ordinary JSON, so the extension was costing openability for nothing. A
+ * trailing `.json` makes it open, preview and transmit everywhere, while
+ * `.jsonfield` still marks it as a session.
  *
- * Detection never depended on the extension — parseSnapshotFile looks for
- * the marker key — so this is purely about the file being usable outside
- * the app.
+ * Detection never depended on the extension — parseSnapshotFile looks for the
+ * marker key — so this is purely about the file being usable outside the app,
+ * and it is why renaming the extension is safe while renaming the marker
+ * would not have been.
  */
-export const SNAPSHOT_FILE_EXT = ".jsonote.json";
+export const SNAPSHOT_FILE_EXT = ".jsonfield.json";
 
 /** Build the download filename for a session, from the document name. */
 export function snapshotFileName(documentName: string): string {
   const base = documentName
-    .replace(/\.jsonote(\.json)?$/i, "")
+    // Strips the pre-rename extension as well, so re-saving a `.jsonote.json`
+    // session does not produce `report.jsonote.jsonfield.json`.
+    .replace(/\.(jsonfield|jsonote)(\.json)?$/i, "")
     .replace(/\.json$/i, "")
     .trim();
   const safe = (base || "session").replace(/[^\w.-]+/g, "-");
@@ -480,7 +499,11 @@ export function serializeSnapshotFile(snapshot: Snapshot): string {
       // A first line for whoever opens this in a text editor rather than in
       // JSONField. Ignored on import — coerceSnapshot only reads known keys.
       _readme:
-        "This is a JSONField session file. Open jsonfield.com and choose More > Import file or session to restore the document, its notes and any comparison. The 'json' field below is the document itself.",
+        // Points at the URL that actually resolves. This used to say
+        // "jsonfield.com", which has no DNS record — so every recipient who
+        // followed the instruction in a shared session file landed on a dead
+        // domain. If a custom domain is added later, update this string with it.
+        "This is a JSONField session file. Open https://jsonfield.netlify.app and choose More > Import file or session to restore the document, its notes and any comparison. The 'json' field below is the document itself.",
       [SNAPSHOT_MARKER]: 1,
       ...snapshot,
     },
@@ -493,8 +516,11 @@ export function serializeSnapshotFile(snapshot: Snapshot): string {
 export function parseSnapshotFile(text: string): Snapshot | null {
   try {
     const obj = JSON.parse(text);
-    if (obj === null || typeof obj !== "object" || !(SNAPSHOT_MARKER in obj))
-      return null;
+    if (obj === null || typeof obj !== "object") return null;
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(obj, key);
+    // Accept the pre-rename marker too, so sessions saved as JSONote/JSONDesk
+    // still import.
+    if (!has(SNAPSHOT_MARKER) && !has(LEGACY_SNAPSHOT_MARKER)) return null;
     return coerceSnapshot(obj);
   } catch {
     return null;

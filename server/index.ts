@@ -1,6 +1,6 @@
+import cors from "cors";
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
 
 export function createServer() {
   const app = express();
@@ -13,7 +13,10 @@ export function createServer() {
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=()",
+    );
     next();
   });
 
@@ -31,9 +34,15 @@ export function createServer() {
    * credentials.
    */
   const allowedOrigins = [
+    // jsonfield.com / www have no DNS record yet; kept for when a custom domain
+    // is attached. Harmless in the meantime — an origin that cannot be reached
+    // cannot be used as one.
     "https://jsonfield.com",
     "https://www.jsonfield.com",
     "https://jsonfield.netlify.app",
+    // NOT a stale brand name: "jsondesk-cc320" is the literal Firebase project
+    // id (see .firebaserc), so this is the real Firebase Hosting origin.
+    // Renaming it during a rebrand sweep would break the deploy target.
     "https://jsondesk-cc320.web.app",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
@@ -43,11 +52,12 @@ export function createServer() {
     cors({
       origin: (origin, callback) => {
         // Same-origin / non-browser callers send no Origin header.
-        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        if (!origin || allowedOrigins.includes(origin))
+          return callback(null, true);
         return callback(null, false);
       },
       credentials: false,
-    })
+    }),
   );
   app.use(express.json({ limit: "5mb" }));
   app.use(express.urlencoded({ extended: true, limit: "5mb" }));
@@ -60,5 +70,3 @@ export function createServer() {
 
   return app;
 }
-
-

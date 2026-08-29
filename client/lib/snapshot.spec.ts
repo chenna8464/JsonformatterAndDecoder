@@ -239,21 +239,27 @@ describe("snapshot file", () => {
 
   describe("snapshotFileName", () => {
     it("uses a .json tail so the OS can open it", () => {
-      expect(snapshotFileName("api.json")).toBe("api.jsonote.json");
+      expect(snapshotFileName("api.json")).toBe("api.jsonfield.json");
     });
 
     it("does not double up when the name already carries the extension", () => {
-      expect(snapshotFileName("api.jsonote.json")).toBe("api.jsonote.json");
+      expect(snapshotFileName("api.jsonfield.json")).toBe("api.jsonfield.json");
+    });
+
+    it("does not stack the new extension on a pre-rename filename", () => {
+      // Re-saving a session that was downloaded as JSONote must not produce
+      // api.jsonote.jsonfield.json.
+      expect(snapshotFileName("api.jsonote.json")).toBe("api.jsonfield.json");
     });
 
     it("falls back to a sensible name when the document is untitled", () => {
-      expect(snapshotFileName("")).toBe("session.jsonote.json");
-      expect(snapshotFileName(".json")).toBe("session.jsonote.json");
+      expect(snapshotFileName("")).toBe("session.jsonfield.json");
+      expect(snapshotFileName(".json")).toBe("session.jsonfield.json");
     });
 
     it("strips characters that break filenames", () => {
       expect(snapshotFileName("my report / v2.json")).toBe(
-        "my-report-v2.jsonote.json",
+        "my-report-v2.jsonfield.json",
       );
     });
   });
@@ -299,5 +305,60 @@ describe("decodeSnapshot — decompression bomb (regression)", () => {
     expect(decodeSnapshot("not-valid-base64-deflate")).toBeNull();
     expect(readSnapshotFromHash("#s=%%%")).toBeNull();
     expect(readSnapshotFromHash("#nothing")).toBeNull();
+  });
+});
+
+describe("snapshot files across the JSONField rename", () => {
+  it("writes the new marker", () => {
+    const file = JSON.parse(serializeSnapshotFile(sample));
+    expect(file["jsonfield.snapshot"]).toBe(1);
+    expect(file["jsonote.snapshot"]).toBeUndefined();
+  });
+
+  it("still imports a session saved before the rename", () => {
+    // What a JSONote/JSONDesk-era download looks like on disk. The marker is a
+    // wire format, so dropping support for it would turn every session file
+    // already sitting in someone's Downloads folder into "not a snapshot".
+    const legacy = JSON.stringify({
+      "jsonote.snapshot": 1,
+      v: 1,
+      name: "legacy.json",
+      json: '{\n  "a": 1\n}',
+    });
+    const restored = parseSnapshotFile(legacy);
+    expect(restored).not.toBeNull();
+    expect(restored!.name).toBe("legacy.json");
+    expect(restored!.json).toBe('{\n  "a": 1\n}');
+  });
+
+  it("still round-trips a snapshot written by the current code", () => {
+    expect(parseSnapshotFile(serializeSnapshotFile(sample))).toEqual(sample);
+  });
+
+  it("rejects an ordinary JSON document that carries neither marker", () => {
+    expect(parseSnapshotFile('{"a":1,"name":"x","json":"{}"}')).toBeNull();
+  });
+
+  it("still reads notes embedded under the legacy $jsonote key", () => {
+    const doc = JSON.stringify({
+      $jsonote: {
+        notes: [
+          {
+            id: 1,
+            title: "old",
+            text: "note",
+            path: "a",
+            line: 1,
+            mention: "",
+            color: "bg-cyan-400",
+          },
+        ],
+      },
+      a: 1,
+    });
+    const { cleanJson, notes } = extractAnnotatedJsonNotes(doc);
+    expect(notes).toHaveLength(1);
+    expect(notes![0].title).toBe("old");
+    expect(JSON.parse(cleanJson)).toEqual({ a: 1 });
   });
 });
